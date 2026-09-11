@@ -61,6 +61,8 @@ https://github.com/Awerkori/extensoes/raw/repo/index.pb
 
 The goal is to support **all Project Nox sources that are technically compatible with the Taiju source runtime**, rather than maintaining a curated or hardcoded subset.
 
+For the first usable milestone, Taiju prioritizes sources that provide Brazilian Portuguese (`pt-BR`) or English (`en`). This is a rollout priority, not a hardcoded source allowlist: source identity, language and availability remain visible and configurable.
+
 MangaDex, when available through the supported source ecosystem or through a future dedicated adapter, is treated as just another source from the product's point of view.
 
 ### Metadata/anime providers

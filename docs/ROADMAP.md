@@ -34,6 +34,12 @@ https://github.com/Awerkori/extensoes/raw/repo/index.pb
 
 Goal: Taiju should expose **every technically compatible Project Nox source**, not a curated subset and not a MangaDex-first path.
 
+Initial language priority:
+
+- Brazilian Portuguese (`pt-BR`);
+- English (`en`);
+- other languages remain discoverable metadata but are not part of the first reader milestone.
+
 ## Phase 2 — Multi-source discovery
 
 - source enumeration API
@@ -42,6 +48,7 @@ Goal: Taiju should expose **every technically compatible Project Nox source**, n
 - normalized manga search contract
 - source provenance in results
 - source/language filtering
+- `pt-BR`/`en` preference ordering and explicit fallback
 - search UI
 - manga details through selected source
 - cover rendering

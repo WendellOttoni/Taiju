@@ -55,6 +55,18 @@ Project Nox catalog:
 https://github.com/Awerkori/extensoes/raw/repo/index.pb
 ```
 
+### Initial language scope
+
+The first usable source slice prioritizes Brazilian Portuguese (`pt-BR`) and English (`en`). This must be implemented as language-aware ordering and filtering over source metadata, never as a hardcoded list of sites. Other compatible languages may be cataloged, but they do not block the initial reader milestone.
+
+Required behavior:
+
+1. normalize catalog locale aliases to stable Taiju language codes;
+2. preserve source language and provenance in every descriptor/result;
+3. allow a user preference order with `pt-BR` and `en` as the initial options;
+4. fall back only when the preferred language has no compatible source/result;
+5. show source availability and language explicitly in discovery and reader flows.
+
 ### Metadata/anime providers
 - AniList
 - Jikan

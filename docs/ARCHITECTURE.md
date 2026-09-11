@@ -142,6 +142,10 @@ Taiju ReadingSource contract
 
 The registry answers which sources exist. The runtime answers how a compatible source executes. Product code consumes only the Taiju contract.
 
+### Language rollout
+
+The initial product slice prioritizes `pt-BR` and `en` sources. The registry must preserve the catalog's language metadata, normalize locale aliases, and expose availability rather than silently discarding other compatible sources. Client preferences determine ordering (`pt-BR` first or `en` first); a fallback is used only when the preferred language has no compatible result.
+
 ## Multi-source behavior
 
 Search and reading must be source-neutral.
