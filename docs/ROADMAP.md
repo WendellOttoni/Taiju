@@ -6,51 +6,55 @@ This roadmap is directional. Numbered task files define executable scope.
 
 - TASK-001 — bootstrap Bun monorepo
 - TASK-002 — establish shared contracts package
-- TASK-003 — establish provider/source package conventions
+- TASK-003 — establish source/provider package conventions
 - TASK-004 — add CI quality checks
 
-## Phase 1 — Source engine and Project Nox catalog
+## Phase 1 — Source Engine + Project Nox
+
+This is the first product foundation. No individual reading source is privileged.
 
 - define normalized Taiju reading-source contracts
 - add `packages/sources`
-- download and cache Project Nox repository metadata
+- download Project Nox repository metadata
 - parse/decode Project Nox `index.pb`
 - enumerate all catalog extensions/sources
 - retain source name, language, version, package identity and provenance
-- define source compatibility checks
-- define extension loading/adaptation runtime
+- define compatibility checks
+- determine extension runtime requirements
+- build source runtime / compatibility layer
 - expose available sources through Taiju API
 - isolate failures per source
 - support source updates/version changes
 
-Primary Project Nox catalog:
+Primary catalog:
 
 ```text
 https://github.com/Awerkori/extensoes/raw/repo/index.pb
 ```
 
-Goal: Taiju should expose every Project Nox source that is technically compatible with its source runtime, rather than maintaining a small hardcoded source list.
+Goal: Taiju should expose **every technically compatible Project Nox source**, not a curated subset and not a MangaDex-first path.
 
-## Phase 2 — Native MangaDex reference provider and discovery
+## Phase 2 — Multi-source discovery
 
-- MangaDex HTTP client
+- source enumeration API
+- search one selected source
+- search all enabled sources
 - normalized manga search contract
-- search API endpoint
+- source provenance in results
+- source/language filtering
 - search UI
-- manga details
+- manga details through selected source
 - cover rendering
 - pagination/error/loading states
-- verify contracts align with the generic source engine
-
-MangaDex acts both as a usable native source and as a reference implementation for Taiju's normalized reading contracts.
+- source failure isolation
+- initial cross-source duplicate/matching strategy
 
 ## Phase 3 — Multi-source chapters and reader
 
-- source selection per title/search result
-- chapter feed/listing from selected source
+- chapter listing from any compatible source
+- source switching per title
 - language filters
-- source-specific chapter/page resolution behind adapters
-- MangaDex@Home page resolution for MangaDex
+- source-neutral page resolution
 - vertical reader
 - page-by-page reader
 - keyboard navigation
@@ -67,15 +71,17 @@ MangaDex acts both as a usable native source and as a reference implementation f
 - chapter/page progress
 - user preferences
 - preferred/enabled sources
+- preferred languages
+- per-title source choices
 
-## Phase 5 — Unified catalog and metadata
+## Phase 5 — Unified metadata/catalog
 
 - AniList integration
-- provider/source identity mapping
-- cross-source title matching strategy
+- cross-source title identity strategy
 - rich metadata enrichment
 - Jikan fallback/complementary metadata
-- provider resolution layer
+- source/provider resolution layer
+- relationships between manga/manhwa/manhua and anime entries
 
 ## Phase 6 — Anime companion
 
@@ -90,18 +96,18 @@ MangaDex acts both as a usable native source and as a reference implementation f
 - related titles
 - recommendation surfaces
 - personalized discovery based on library/history
-- cross-media relationships (manga/anime)
+- cross-media relationships
 - source-aware availability indicators
 
 ## Phase 8 — Reliability and scale
 
-- source catalog refresh strategy
+- Project Nox catalog refresh strategy
 - source version/update handling
-- caching based on measured provider/source needs
-- rate-limit policies
+- caching based on measured source/provider needs
+- source-level rate-limit policies
 - observability
 - performance profiling
-- provider/source fallback strategy
+- source fallback strategy
 - deployment hardening
 
 ## Non-goals for the initial MVP
