@@ -2,7 +2,7 @@
 
 Taiju is an open-source manga, manhwa and manhua reader and anime companion.
 
-The project is built around a provider/source architecture so catalog, reading, tracking and discovery features are not tied to a single external service. Taiju will support native providers such as MangaDex and a source-extension layer backed by the Project Nox repository catalog.
+The project is built **source-first**: catalog, reading, tracking and discovery must not depend on a single provider. The primary reading architecture is the Taiju Source Engine, backed initially by the full Project Nox extension catalog.
 
 > Status: foundation phase. No product features have been implemented yet.
 
@@ -14,15 +14,16 @@ Planned capabilities include:
 
 - search and discovery for manga, manhwa and manhua;
 - title details, covers, tags, authors and publication information;
-- chapter browsing and reading through multiple configured sources;
+- chapter browsing and reading through multiple sources;
 - source selection per title/chapter;
-- loading the full Project Nox extension catalog and exposing compatible sources through a normalized Taiju source interface;
+- loading the complete Project Nox extension catalog and exposing every technically compatible source through a normalized Taiju source interface;
+- cross-source search and availability;
 - vertical and page-by-page reading modes;
 - reading history, favorites and progress tracking;
 - anime metadata, seasonal discovery and tracking;
 - recommendations and related titles;
 - identification of anime scenes from screenshots;
-- multiple external providers behind normalized Taiju contracts.
+- metadata providers isolated behind Taiju-owned contracts.
 
 ## Tech stack
 
@@ -44,20 +45,28 @@ Planned capabilities include:
 - Drizzle ORM
 - Redis may be introduced later when caching requirements justify it
 
-### External providers and source catalogs
-- Project Nox — primary source-extension catalog; Taiju will ingest its modern `index.pb` catalog and support all compatible published sources/extensions
-- MangaDex — native reading and manga metadata provider and initial reference implementation
-- AniList — planned catalog/anime metadata provider
-- Jikan — planned complementary/fallback metadata provider
-- trace.moe — planned anime scene identification provider
+### Reading sources
 
-Project Nox catalog:
+Taiju does not have a privileged default reading source.
+
+The first source ecosystem is:
+
+- Project Nox — source-extension catalog via `index.pb`
+
+Catalog:
 
 ```text
 https://github.com/Awerkori/extensoes/raw/repo/index.pb
 ```
 
-Taiju must not hardcode individual scan sites into product/domain code. Each source must be reached through a common source contract so sources can be added, updated, disabled or replaced independently.
+The goal is to support **all Project Nox sources that are technically compatible with the Taiju source runtime**, rather than maintaining a curated or hardcoded subset.
+
+MangaDex, when available through the supported source ecosystem or through a future dedicated adapter, is treated as just another source from the product's point of view.
+
+### Metadata/anime providers
+- AniList — planned catalog/anime metadata provider
+- Jikan — planned complementary/fallback metadata provider
+- trace.moe — planned anime scene identification provider
 
 ## Repository architecture
 
@@ -69,8 +78,8 @@ Taiju/
 ├── packages/
 │   ├── contracts/            # shared schemas and public contracts
 │   ├── database/             # Drizzle schema, migrations and DB access
-│   ├── providers/            # native external provider integrations
-│   ├── sources/              # Project Nox/source-extension runtime and adapters
+│   ├── sources/              # source catalog, registry, runtime and adapters
+│   ├── providers/            # non-reading metadata/anime integrations
 │   └── config/               # shared TypeScript/tooling configuration
 ├── docs/
 │   ├── ARCHITECTURE.md
@@ -83,20 +92,18 @@ Taiju/
 └── README.md
 ```
 
-The initial structure is intentionally small. New abstractions should only be introduced when a concrete feature requires them.
-
 ## Architecture principles
 
-1. Taiju owns its public contracts. External API/source DTOs must not leak directly into the web app.
-2. External services and scan sources are adapters, not the domain model.
-3. Project Nox is treated as a source registry/catalog, not as Taiju's domain representation.
-4. Every reading source must implement a normalized capability contract.
-5. Features are implemented incrementally in small, testable tasks.
-6. Frontend and backend share TypeScript contracts where useful.
-7. Provider/source failures must be isolated and translated into Taiju-level errors.
-8. Caching and persistence are introduced based on measured requirements, not preemptively.
-9. No unrelated refactoring during feature tasks.
-10. A completed task should leave the repository in a runnable, validated state.
+1. Taiju owns its public contracts. External source/provider DTOs must not leak into the web app.
+2. Reading is source-engine driven from the beginning.
+3. No scan/site is hardcoded into product or UI logic.
+4. Project Nox is an external source registry/catalog, not Taiju's domain model.
+5. Every reading source is exposed through the same normalized capability contract.
+6. Search, details, chapters and pages must operate by source capability, not by source name.
+7. One broken source must not break unrelated sources.
+8. Metadata providers are independent from reading sources.
+9. Features are implemented incrementally in small, testable tasks.
+10. A completed task must leave the repository runnable and validated.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the technical direction, [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) for execution order and [`AGENTS.md`](AGENTS.md) for agent-development rules.
 
@@ -121,7 +128,7 @@ Exact version constraints will be pinned during TASK-001 rather than guessed in 
 
 ## Project independence
 
-Taiju is an independent project and is not affiliated with Project Nox, MangaDex, AniList, MyAnimeList, Tokyo Revengers or their respective publishers and rights holders. Source availability may change over time, so source integrations must be isolated, updateable and failure-tolerant.
+Taiju is an independent project and is not affiliated with Project Nox, individual source sites, publishers or rights holders. Source availability may change over time, so integrations must be isolated, updateable and failure-tolerant.
 
 ## License
 
