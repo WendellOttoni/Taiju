@@ -14,7 +14,8 @@ const responseSchema = z.object({
         volume: z.string().nullable().optional(),
         title: z.string().nullable().optional(),
         translatedLanguage: z.string(),
-        publishAt: z.string().datetime(),
+        publishAt: z.string().datetime().nullable().optional(),
+        createdAt: z.string().datetime(),
       }),
       relationships: z
         .array(
@@ -67,7 +68,8 @@ export async function getChapterFeed(
         volume: chapter.attributes.volume ?? undefined,
         title: chapter.attributes.title ?? undefined,
         language: chapter.attributes.translatedLanguage,
-        publishedAt: chapter.attributes.publishAt,
+        publishedAt:
+          chapter.attributes.publishAt ?? chapter.attributes.createdAt,
         scanlationGroup:
           group?.attributes === undefined
             ? undefined

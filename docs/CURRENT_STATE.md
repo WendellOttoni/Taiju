@@ -25,6 +25,7 @@ Last completed setup step: TASK-035 — Reading progress synchronization.
 - Normalized MangaDex details endpoint for title metadata, contributors, tags, languages and cover.
 - Public manga details page linked from search results and backed by Taiju API contracts.
 - Normalized MangaDex chapter feed with language filters, pagination and scanlation groups.
+- Chapter feed tolerates MangaDex chapters without `publishAt`, falling back to `createdAt`.
 - Chapter API endpoint with validated language and pagination parameters.
 - Chapter list rendered on manga detail pages.
 - MangaDex@Home chapter-page resolver isolated in the provider package.

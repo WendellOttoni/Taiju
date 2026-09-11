@@ -103,6 +103,7 @@ describe("GET /health", () => {
                   id: "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
                   attributes: {
                     chapter: "1",
+                    createdAt: "2026-01-01T00:00:00.000Z",
                     translatedLanguage: "en",
                     publishAt: "2026-01-01T00:00:00.000Z",
                   },

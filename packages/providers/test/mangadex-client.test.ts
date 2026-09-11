@@ -97,6 +97,7 @@ test("normalizes a paginated MangaDex chapter feed", async () => {
                   chapter: "1",
                   translatedLanguage: "en",
                   publishAt: "2026-01-01T00:00:00.000Z",
+                  createdAt: "2026-01-01T00:00:00.000Z",
                 },
                 relationships: [
                   {
@@ -119,6 +120,33 @@ test("normalizes a paginated MangaDex chapter feed", async () => {
   );
   expect(path).toContain("translatedLanguage%5B%5D=en");
   expect(result.items[0]?.scanlationGroup?.name).toBe("Group");
+});
+
+test("uses the MangaDex creation timestamp when a chapter has no publication timestamp", async () => {
+  const result = await getChapterFeed(
+    {
+      request: async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+                attributes: {
+                  createdAt: "2026-01-02T00:00:00.000Z",
+                  publishAt: null,
+                  translatedLanguage: "en",
+                },
+              },
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0,
+          }),
+        ),
+    },
+    "c1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+  );
+  expect(result.items[0]?.publishedAt).toBe("2026-01-02T00:00:00.000Z");
 });
 
 test("resolves MangaDex@Home pages through the provider protocol", async () => {
