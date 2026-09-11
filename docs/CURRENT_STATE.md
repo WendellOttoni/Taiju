@@ -86,3 +86,5 @@ Para teste na mesma rede, o frontend possui o comando `bun run dev:web:lan`; o p
 
 Para habilitar fontes dinâmicas localmente, inicie o sidecar Suwayomi e defina
 `SUWAYOMI_URL` (por exemplo, `http://127.0.0.1:4567`) antes de iniciar a API.
+O procedimento completo de instalação local, extensões, rede e diagnóstico está
+em [`LOCAL_SETUP.md`](LOCAL_SETUP.md).

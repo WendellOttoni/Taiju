@@ -128,6 +128,9 @@ The implementation phase will require:
 
 Exact version constraints will be pinned during TASK-001 rather than guessed in advance.
 
+For a complete local reading setup, including Java 21+, Suwayomi, the Project
+Nox extension store and LAN testing, see [the Windows local setup guide](docs/LOCAL_SETUP.md).
+
 ## Project independence
 
 Taiju is an independent project and is not affiliated with Project Nox, individual source sites, publishers or rights holders. Source availability may change over time, so integrations must be isolated, updateable and failure-tolerant.
