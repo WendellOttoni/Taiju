@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-007 — Project Nox index decoder.
+Last completed setup step: TASK-008 — Source registry.
 
 ## Implemented
 
@@ -43,10 +43,11 @@ Last completed setup step: TASK-007 — Project Nox index decoder.
 - Source-neutral contracts for reading capabilities, language, provenance and external source identity; the initial rollout prioritizes `pt-BR` and `en`.
 - Isolated Project Nox `index.pb` catalog client with timeout, cancellation, size bounds and deterministic fetch injection.
 - Project Nox protobuf/gzip index decoder with normalized extension/source catalog models and deterministic fixtures.
+- In-memory source registry with stable IDs, language normalization/prioritization, provenance and enablement state.
 
 ## Not implemented yet
 
-- Project Nox source runtime, registry and API integration.
+- Project Nox source runtime and API integration.
 
 ## Current phase
 
@@ -54,7 +55,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-008 — Project Nox source registry`
+`TASK-009 — Source runtime investigation`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

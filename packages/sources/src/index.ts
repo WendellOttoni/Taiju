@@ -14,3 +14,9 @@ export {
   decodeProjectNoxCatalog,
   SourceCatalogDecodeError,
 } from "./catalog-decoder";
+export type {
+  RegisteredSource,
+  SourceListOptions,
+  SourceRegistryOptions,
+} from "./registry";
+export { createSourceRegistry, SourceRegistry } from "./registry";
