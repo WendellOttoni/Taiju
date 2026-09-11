@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-025 — Vertical reader.
+Last completed setup step: TASK-026 — Paged reader.
 
 ## Implemented
 
@@ -30,6 +30,7 @@ Last completed setup step: TASK-025 — Vertical reader.
 - MangaDex@Home chapter-page resolver isolated in the provider package.
 - Reader route and normalized chapter-page endpoint.
 - Vertical reader with lazy-loaded pages, per-page failure feedback, chapter navigation and local progress capture.
+- Optional page-by-page reader with keyboard/button navigation and adjacent-page preloading.
 
 ## Not implemented yet
 
@@ -45,7 +46,7 @@ MangaDex integration / vertical reader complete.
 
 ## Next task
 
-`TASK-026 — Paged reader`
+`TASK-027 — Reader preferences`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

@@ -298,12 +298,17 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [failedPages, setFailedPages] = useState<Set<number>>(() => new Set());
   const [siblings, setSiblings] = useState<ChapterSummary[]>([]);
+  const [mode, setMode] = useState<"vertical" | "paged">("vertical");
+  const [pageIndex, setPageIndex] = useState(0);
   const mangaId = new URLSearchParams(window.location.search).get("manga");
 
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       try {
+        setChapter(null);
+        setPageIndex(0);
+        setFailedPages(new Set());
         const response = await fetch(`/api/chapters/${provider}/${id}/pages`, {
           signal: controller.signal,
         });
@@ -341,6 +346,30 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   const previous = currentIndex > 0 ? siblings[currentIndex - 1] : undefined;
   const next = currentIndex >= 0 ? siblings[currentIndex + 1] : undefined;
 
+  useEffect(() => {
+    if (chapter === null || mode !== "paged") return;
+
+    for (const neighbor of [pageIndex - 1, pageIndex + 1]) {
+      const pageUrl = chapter.pageUrls[neighbor];
+      if (pageUrl !== undefined) new Image().src = pageUrl;
+    }
+  }, [chapter, mode, pageIndex]);
+
+  useEffect(() => {
+    if (chapter === null || mode !== "paged") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft")
+        setPageIndex((current) => Math.max(0, current - 1));
+      if (event.key === "ArrowRight")
+        setPageIndex((current) =>
+          Math.min(chapter.pageUrls.length - 1, current + 1),
+        );
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [chapter, mode]);
+
   if (error)
     return (
       <main className="min-h-screen bg-zinc-950 p-8 text-red-300">{error}</main>
@@ -351,7 +380,22 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
         <a href="/" className="text-amber-400">
           ← Voltar
         </a>
-        <span className="text-sm text-zinc-400">Leitor vertical</span>
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            type="button"
+            className={`rounded px-3 py-1 ${mode === "vertical" ? "bg-amber-400 text-zinc-950" : "bg-zinc-800 text-zinc-300"}`}
+            onClick={() => setMode("vertical")}
+          >
+            Vertical
+          </button>
+          <button
+            type="button"
+            className={`rounded px-3 py-1 ${mode === "paged" ? "bg-amber-400 text-zinc-950" : "bg-zinc-800 text-zinc-300"}`}
+            onClick={() => setMode("paged")}
+          >
+            Paginado
+          </button>
+        </div>
       </header>
       {chapter === null ? (
         <p className="p-8 text-zinc-300" role="status">
@@ -359,29 +403,58 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
         </p>
       ) : (
         <section className="mx-auto max-w-5xl">
-          {chapter.pageUrls.map((pageUrl, index) =>
-            failedPages.has(index) ? (
-              <div
-                key={pageUrl}
-                className="grid aspect-[2/3] place-items-center bg-zinc-900 text-zinc-400"
-              >
-                Falha ao carregar a página {index + 1}.
-              </div>
-            ) : (
-              <img
-                key={pageUrl}
-                src={pageUrl}
-                alt={`Página ${index + 1}`}
-                loading="lazy"
-                className="block w-full"
-                onLoad={() =>
-                  localStorage.setItem(`taiju:reader:${id}`, String(index + 1))
-                }
-                onError={() =>
-                  setFailedPages((current) => new Set(current).add(index))
-                }
-              />
-            ),
+          {mode === "vertical" ? (
+            chapter.pageUrls.map((pageUrl, index) =>
+              failedPages.has(index) ? (
+                <div
+                  key={pageUrl}
+                  className="grid aspect-[2/3] place-items-center bg-zinc-900 text-zinc-400"
+                >
+                  Falha ao carregar a página {index + 1}.
+                </div>
+              ) : (
+                <img
+                  key={pageUrl}
+                  src={pageUrl}
+                  alt={`Página ${index + 1}`}
+                  loading="lazy"
+                  className="block w-full"
+                  onLoad={() =>
+                    localStorage.setItem(
+                      `taiju:reader:${id}`,
+                      String(index + 1),
+                    )
+                  }
+                  onError={() =>
+                    setFailedPages((current) => new Set(current).add(index))
+                  }
+                />
+              ),
+            )
+          ) : (
+            <PagedPage
+              pageUrl={chapter.pageUrls[pageIndex] ?? ""}
+              pageIndex={pageIndex}
+              pageCount={chapter.pageUrls.length}
+              failed={failedPages.has(pageIndex)}
+              onLoad={() =>
+                localStorage.setItem(
+                  `taiju:reader:${id}`,
+                  String(pageIndex + 1),
+                )
+              }
+              onError={() =>
+                setFailedPages((current) => new Set(current).add(pageIndex))
+              }
+              onPrevious={() =>
+                setPageIndex((current) => Math.max(0, current - 1))
+              }
+              onNext={() =>
+                setPageIndex((current) =>
+                  Math.min(chapter.pageUrls.length - 1, current + 1),
+                )
+              }
+            />
           )}
           <nav className="flex justify-between gap-4 p-6">
             {previous ? (
@@ -408,5 +481,65 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
         </section>
       )}
     </main>
+  );
+}
+
+function PagedPage({
+  pageUrl,
+  pageIndex,
+  pageCount,
+  failed,
+  onLoad,
+  onError,
+  onPrevious,
+  onNext,
+}: {
+  pageUrl: string;
+  pageIndex: number;
+  pageCount: number;
+  failed: boolean;
+  onLoad: () => void;
+  onError: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="min-h-[calc(100vh-73px)] bg-zinc-900 p-4">
+      <p className="mb-3 text-center text-sm text-zinc-400">
+        Página {pageIndex + 1} de {pageCount} · use ← e → para navegar
+      </p>
+      {failed ? (
+        <div className="mx-auto grid max-w-3xl aspect-[2/3] place-items-center bg-zinc-800 text-zinc-400">
+          Falha ao carregar a página {pageIndex + 1}.
+        </div>
+      ) : (
+        <img
+          key={pageUrl}
+          src={pageUrl}
+          alt={`Página ${pageIndex + 1}`}
+          className="mx-auto max-h-[calc(100vh-150px)] max-w-full object-contain"
+          onLoad={onLoad}
+          onError={onError}
+        />
+      )}
+      <div className="mx-auto mt-4 flex max-w-3xl justify-between gap-4">
+        <button
+          type="button"
+          className="rounded bg-zinc-800 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={pageIndex === 0}
+          onClick={onPrevious}
+        >
+          ← Página anterior
+        </button>
+        <button
+          type="button"
+          className="rounded bg-zinc-800 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={pageIndex === pageCount - 1}
+          onClick={onNext}
+        >
+          Próxima página →
+        </button>
+      </div>
+    </div>
   );
 }
