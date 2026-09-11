@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-002 — Code quality baseline.
+Last completed setup step: TASK-003 — API foundation.
 
 ## Implemented
 
@@ -17,6 +17,7 @@ Last completed setup step: TASK-002 — Code quality baseline.
 - shared contracts, providers and database package boundaries;
 - shared TypeScript compiler baseline.
 - Biome formatting, linting and import-organization baseline.
+- API environment validation, structured request logging and consistent JSON errors.
 
 ## Not implemented yet
 
@@ -32,11 +33,11 @@ Last completed setup step: TASK-002 — Code quality baseline.
 
 ## Current phase
 
-Foundation / code-quality baseline complete.
+Foundation / API foundation complete.
 
 ## Next task
 
-`TASK-003 — API foundation`
+`TASK-010 — MangaDex HTTP client`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
