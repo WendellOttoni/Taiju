@@ -1,5 +1,7 @@
 export type { AuthCredentials, AuthenticatedUser } from "./auth";
 export { authCredentialsSchema, authenticatedUserSchema } from "./auth";
+export type { LibraryEntry } from "./library";
+export { libraryEntrySchema, libraryResponseSchema } from "./library";
 export type {
   ChapterFeedQuery,
   ChapterFeedResponse,

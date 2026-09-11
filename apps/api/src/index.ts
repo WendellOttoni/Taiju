@@ -1,4 +1,8 @@
-import { createAuthUserRepository, createDatabase } from "@taiju/database";
+import {
+  createAuthUserRepository,
+  createDatabase,
+  createLibraryRepository,
+} from "@taiju/database";
 import { serve } from "bun";
 import { createApp } from "./app";
 import { createAuthService } from "./auth";
@@ -6,16 +10,23 @@ import { loadEnvironment } from "./config/environment";
 
 const environment = loadEnvironment(process.env);
 
+const database =
+  environment.DATABASE_URL === undefined
+    ? undefined
+    : createDatabase(environment.DATABASE_URL);
 const auth =
-  environment.DATABASE_URL !== undefined &&
-  environment.AUTH_JWT_SECRET !== undefined
+  database !== undefined && environment.AUTH_JWT_SECRET !== undefined
     ? createAuthService(
-        createAuthUserRepository(createDatabase(environment.DATABASE_URL)),
+        createAuthUserRepository(database),
         environment.AUTH_JWT_SECRET,
       )
     : undefined;
 
-const app = createApp({ auth });
+const app = createApp({
+  auth,
+  library:
+    database === undefined ? undefined : createLibraryRepository(database),
+});
 
 serve({
   fetch: app.fetch,

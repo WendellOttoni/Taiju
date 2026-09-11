@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { check, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const users = pgTable(
   "users",
@@ -43,3 +51,29 @@ export const passwordCredentials = pgTable("password_credentials", {
     .defaultNow()
     .notNull(),
 });
+
+export const libraryEntries = pgTable(
+  "library_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mangaProvider: text("manga_provider").notNull(),
+    mangaProviderId: uuid("manga_provider_id").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("library_entries_user_manga_unique").on(
+      table.userId,
+      table.mangaProvider,
+      table.mangaProviderId,
+    ),
+    index("library_entries_user_created_at_index").on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+);

@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-032 — Authentication.
+Last completed setup step: TASK-033 — Library/favorites.
 
 ## Implemented
 
@@ -35,10 +35,11 @@ Last completed setup step: TASK-032 — Authentication.
 - PostgreSQL/Drizzle package foundation with validated connection URLs, bounded client pool defaults and migration scripts.
 - Taiju-owned `users` and `profiles` tables with a generated migration and normalized unique email constraint.
 - E-mail/password authentication with Argon2id hashes, signed seven-day JWTs and authenticated-user endpoint.
+- Authenticated library endpoints and persisted MangaDex favorites with user-scoped uniqueness.
 
 ## Not implemented yet
 
-- user library, history and synchronized progress;
+- reading history and synchronized progress;
 - anime features.
 
 ## Current phase
@@ -47,7 +48,7 @@ Authentication complete; personal manga state is next.
 
 ## Next task
 
-`TASK-033 — Library/favorites`
+`TASK-034 — Reading history`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

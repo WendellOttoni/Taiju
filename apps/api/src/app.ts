@@ -4,6 +4,7 @@ import {
   mangaSearchQuerySchema,
   readerChapterSchema,
 } from "@taiju/contracts";
+import type { LibraryRepository } from "@taiju/database";
 import {
   getChapterFeed,
   getMangaDetails,
@@ -12,7 +13,7 @@ import {
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import {
   AuthenticationError,
   type AuthService,
@@ -23,12 +24,14 @@ import { jsonError } from "./http/errors";
 
 export type ApiDependencies = {
   auth?: AuthService;
+  library?: LibraryRepository;
   mangaDexClient?: Pick<MangaDexClient, "request">;
 };
 
 export function createApp(dependencies: ApiDependencies = {}) {
   const mangaDexClient = dependencies.mangaDexClient ?? new MangaDexClient();
   const auth = dependencies.auth;
+  const library = dependencies.library;
   const app = new Hono();
   app.use("*", async (context, next) => {
     const startedAt = performance.now();
@@ -103,6 +106,71 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Authentication is required.",
       );
     return context.json(await auth.authenticate(token));
+  });
+  app.get("/api/library", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (library === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const items = await library.list(user.id);
+    return context.json({
+      items: items.map((item) => ({
+        ...item,
+        createdAt: item.createdAt.toISOString(),
+        mangaProvider: "mangadex" as const,
+      })),
+    });
+  });
+  app.put("/api/library/manga/:provider/:id", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (library === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    if (
+      context.req.param("provider") !== "mangadex" ||
+      !isUuid(context.req.param("id"))
+    )
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga identifier.",
+      );
+    await library.add(user.id, "mangadex", context.req.param("id"));
+    return context.body(null, 204);
+  });
+  app.delete("/api/library/manga/:provider/:id", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (library === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    if (
+      context.req.param("provider") !== "mangadex" ||
+      !isUuid(context.req.param("id"))
+    )
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga identifier.",
+      );
+    await library.remove(user.id, "mangadex", context.req.param("id"));
+    return context.body(null, 204);
   });
   app.get("/api/manga/search", async (context) => {
     const parsed = mangaSearchQuerySchema.safeParse({
@@ -255,3 +323,31 @@ export function createApp(dependencies: ApiDependencies = {}) {
 }
 
 export const app = createApp();
+
+async function authenticatedUser(
+  context: Context,
+  auth: AuthService | undefined,
+) {
+  if (auth === undefined)
+    return jsonError(
+      context,
+      503,
+      "authentication_unavailable",
+      "Authentication is not configured.",
+    );
+  const token = bearerToken(context.req.header("Authorization"));
+  if (token === undefined)
+    return jsonError(
+      context,
+      401,
+      "unauthorized",
+      "Authentication is required.",
+    );
+  return auth.authenticate(token);
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}

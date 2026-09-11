@@ -4,4 +4,9 @@ export {
   createAuthUserRepository,
 } from "./auth-repository";
 export { createDatabase, parseDatabaseUrl, type TaijuDatabase } from "./client";
-export { passwordCredentials, profiles, users } from "./schema";
+export {
+  createLibraryRepository,
+  type LibraryEntry,
+  type LibraryRepository,
+} from "./library-repository";
+export { libraryEntries, passwordCredentials, profiles, users } from "./schema";
