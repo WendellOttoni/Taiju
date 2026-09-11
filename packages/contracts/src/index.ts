@@ -26,6 +26,24 @@ export {
 export type { ReadingProgress } from "./reading";
 export { readingHistoryResponseSchema, readingProgressSchema } from "./reading";
 export type {
+  SourceChapter,
+  SourceChapterList,
+  SourceMangaDetails,
+  SourceMangaSummary,
+  SourceReaderChapter,
+  SourceSearchQuery,
+  SourceSearchResponse,
+} from "./reading-source";
+export {
+  sourceChapterListSchema,
+  sourceChapterSchema,
+  sourceMangaDetailsSchema,
+  sourceMangaSummarySchema,
+  sourceReaderChapterSchema,
+  sourceSearchQuerySchema,
+  sourceSearchResponseSchema,
+} from "./reading-source";
+export type {
   SourceCapability,
   SourceLanguage,
   SourceProvenance,

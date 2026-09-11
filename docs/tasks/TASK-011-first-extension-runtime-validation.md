@@ -36,9 +36,23 @@ Foi criado um cliente GraphQL isolado para o sidecar Suwayomi, com base URL conf
 
 O processo temporário encerrou antes da sequência de busca/detalhes/capítulos/páginas; essas operações permanecem pendentes de uma execução persistente do sidecar.
 
-## Próximo bloqueio técnico
+## Adaptador de leitura concluído
 
-Para concluir a validação é necessário iniciar uma versão fixa do Suwayomi-Server, instalar a extensão no sidecar, validar assinatura/hash e implementar o mapeamento de modelos para contratos Taiju.
+O cliente agora executa as mutações GraphQL `fetchSourceManga`,
+`fetchMangaAndChapters` e `fetchChapterPages`. As respostas são validadas no
+limite do adaptador e convertidas por `SuwayomiReadingSource` para contratos
+Taiju com `SourceRef`; DTOs GraphQL não atravessam o pacote `sources`.
+
+Os testes usam respostas GraphQL determinísticas. A forma das operações foi
+confirmada contra o schema público do Suwayomi VUI, compatível com a release
+validada. Um sidecar continua opcional e configurado externamente; não há
+artefato ou credencial do host no repositório.
+
+## Limite de validação ao vivo
+
+O carregamento, a instalação e a enumeração de uma extensão real já foram
+validados. A sequência completa em um processo persistente ainda deve ser
+repetida antes de classificar uma fonte como compatível catalog-wide.
 
 Referência: [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server).
 

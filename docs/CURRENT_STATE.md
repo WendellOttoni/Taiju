@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-010 — Source runtime foundation.
+Last completed setup step: TASK-011 — First extension runtime adapter.
 
 ## Implemented
 
@@ -46,13 +46,14 @@ Last completed setup step: TASK-010 — Source runtime foundation.
 - In-memory source registry with stable IDs, language normalization/prioritization, provenance and enablement state.
 - Runtime investigation completed: Project Nox extensions are JVM/Android artifacts; direct Bun execution was rejected and an isolated JVM worker was selected for the proof of concept.
 - JVM runtime IPC boundary implemented with explicit operations, response validation, timeout and process lifecycle isolation.
+- Cliente GraphQL Suwayomi com timeout, cancelamento e tradução de falhas.
+- Adaptador de leitura Suwayomi para busca, detalhes, capítulos e páginas, convertido para contratos Taiju com referências explícitas de fonte.
 
 ## Not implemented yet
 
-- Real extension adapter and API integration.
-- End-to-end execution of a real Project Nox extension is blocked until the TachiyomiX/Mihon host API and dependencies are packaged for the JVM worker.
-- Suwayomi-Server foi selecionado como alternativa de host sidecar; o adaptador HTTP ainda não foi implementado.
-- Cliente GraphQL interno do Suwayomi implementado com timeout, cancelamento e tradução de falhas; o sidecar carregou uma extensão Project Nox real, mas operações de leitura e mapeamento de modelos ainda pendem.
+- API de fontes, orquestração de busca e UI multi-source.
+- Scanner catalog-wide: compatibilidade deve ser confirmada por fonte instalada no sidecar, não inferida apenas do catálogo.
+- Validação persistente ao vivo de busca, detalhes, capítulos e páginas em uma fonte de fixture.
 
 ## Current phase
 
@@ -60,7 +61,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-011 — First real extension execution (blocked pending host API packaging)`
+`TASK-012 — Catalog-wide compatibility scanner`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
