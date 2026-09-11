@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-012 — Manga search API endpoint.
+Last completed setup step: TASK-013 — Search UI.
 
 ## Implemented
 
@@ -21,6 +21,7 @@ Last completed setup step: TASK-012 — Manga search API endpoint.
 - Isolated MangaDex HTTP client with timeout, cancellation and rate-limit error translation.
 - Shared Zod contracts for normalized manga search requests, summaries and paginated responses.
 - Manga search API endpoint backed by the isolated MangaDex provider adapter.
+- Responsive search UI consuming only the Taiju API contract.
 
 ## Not implemented yet
 
@@ -34,11 +35,11 @@ Last completed setup step: TASK-012 — Manga search API endpoint.
 
 ## Current phase
 
-MangaDex integration / search API complete.
+MangaDex integration / search UI complete.
 
 ## Next task
 
-`TASK-013 — Search UI`
+`TASK-014 — Manga details API`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
