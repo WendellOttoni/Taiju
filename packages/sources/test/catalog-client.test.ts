@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
+import type { SourceCatalogError } from "../src";
 
 import { SourceCatalogClient, SourceCatalogTimeoutError } from "../src";
-import type { SourceCatalogError } from "../src";
 
 test("downloads the catalog as bytes with the expected media type", async () => {
   let requestHeaders: Headers | undefined;

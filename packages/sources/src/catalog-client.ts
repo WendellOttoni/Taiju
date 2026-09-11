@@ -25,18 +25,19 @@ export class SourceCatalogTimeoutError extends SourceCatalogError {
 
 export type SourceCatalogClientOptions = {
   baseUrl?: string;
-  fetch?: typeof globalThis.fetch;
+  fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   timeoutMs?: number;
 };
 
 export class SourceCatalogClient {
   private readonly baseUrl: string;
-  private readonly fetcher: typeof globalThis.fetch;
+  private readonly fetcher: NonNullable<SourceCatalogClientOptions["fetch"]>;
   private readonly timeoutMs: number;
 
   constructor(options: SourceCatalogClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? projectNoxCatalogUrl;
-    this.fetcher = options.fetch ?? globalThis.fetch;
+    this.fetcher =
+      options.fetch ?? ((input, init) => globalThis.fetch(input, init));
     this.timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1)
       throw new Error("Source catalog timeout must be a positive integer.");

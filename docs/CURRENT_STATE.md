@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-006 — Project Nox catalog client.
+Last completed setup step: TASK-007 — Project Nox index decoder.
 
 ## Implemented
 
@@ -42,10 +42,11 @@ Last completed setup step: TASK-006 — Project Nox catalog client.
 - Authenticated progress-sync and reading-history endpoints for resuming on another session or device.
 - Source-neutral contracts for reading capabilities, language, provenance and external source identity; the initial rollout prioritizes `pt-BR` and `en`.
 - Isolated Project Nox `index.pb` catalog client with timeout, cancellation, size bounds and deterministic fetch injection.
+- Project Nox protobuf/gzip index decoder with normalized extension/source catalog models and deterministic fixtures.
 
 ## Not implemented yet
 
-- Project Nox index decoder and source runtime.
+- Project Nox source runtime, registry and API integration.
 
 ## Current phase
 
@@ -53,7 +54,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-007 — Project Nox index decoder`
+`TASK-008 — Project Nox source registry`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
