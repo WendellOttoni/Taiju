@@ -3,6 +3,7 @@ import type { Context } from "hono";
 type ApiErrorCode =
   | "authentication_unavailable"
   | "conflict"
+  | "content_unavailable"
   | "internal_error"
   | "not_found"
   | "provider_unavailable"

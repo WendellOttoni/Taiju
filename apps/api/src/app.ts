@@ -10,6 +10,7 @@ import {
   getChapterFeed,
   getMangaDetails,
   MangaDexClient,
+  MangaDexContentUnavailableError,
   MangaDexHttpError,
   resolveChapterPages,
   searchManga,
@@ -351,7 +352,22 @@ export function createApp(dependencies: ApiDependencies = {}) {
     ),
   );
   app.onError((error, context) => {
-    console.error(error);
+    console.error(
+      JSON.stringify({
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        event: "api_error",
+        message: error instanceof Error ? error.message : "Unknown error",
+        method: context.req.method,
+        path: new URL(context.req.url).pathname,
+      }),
+    );
+    if (error instanceof MangaDexContentUnavailableError)
+      return jsonError(
+        context,
+        404,
+        "content_unavailable",
+        "This chapter has no readable pages available from MangaDex.",
+      );
     if (error instanceof MangaDexHttpError)
       return jsonError(
         context,

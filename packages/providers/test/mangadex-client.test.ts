@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   getChapterFeed,
   MangaDexClient,
+  MangaDexContentUnavailableError,
   MangaDexHttpError,
   MangaDexRateLimitError,
   MangaDexTimeoutError,
@@ -192,4 +193,21 @@ test("resolves MangaDex@Home pages through the provider protocol", async () => {
   expect(result.pages).toEqual([
     "https://uploads.mangadex.org/data/hash/1.jpg",
   ]);
+});
+
+test("reports unavailable chapters when MangaDex@Home provides no page hash", async () => {
+  await expect(
+    resolveChapterPages(
+      {
+        request: async () =>
+          new Response(
+            JSON.stringify({
+              baseUrl: "https://uploads.mangadex.org",
+              chapter: { hash: "", data: [] },
+            }),
+          ),
+      },
+      "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+    ),
+  ).rejects.toBeInstanceOf(MangaDexContentUnavailableError);
 });

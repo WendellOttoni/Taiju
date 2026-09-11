@@ -31,3 +31,11 @@ export class MangaDexTimeoutError extends Error {
     super(`MangaDex request exceeded the ${timeoutMs}ms timeout.`);
   }
 }
+
+export class MangaDexContentUnavailableError extends Error {
+  override name: string = "MangaDexContentUnavailableError";
+
+  constructor() {
+    super("MangaDex did not provide readable pages for this chapter.");
+  }
+}

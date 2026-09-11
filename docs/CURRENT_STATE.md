@@ -29,6 +29,7 @@ Last completed setup step: TASK-035 — Reading progress synchronization.
 - Chapter API endpoint with validated language and pagination parameters.
 - Chapter list rendered on manga detail pages.
 - MangaDex@Home chapter-page resolver isolated in the provider package.
+- Unavailable MangaDex@Home chapters return a clear `content_unavailable` response, with structured API error logs.
 - Reader route and normalized chapter-page endpoint.
 - Vertical reader with lazy-loaded pages, per-page failure feedback, chapter navigation and local progress capture.
 - Optional page-by-page reader with keyboard/button navigation and adjacent-page preloading.
