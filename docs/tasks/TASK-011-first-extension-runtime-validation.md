@@ -12,13 +12,15 @@ NoClassDefFoundError: eu/kanade/tachiyomi/source/SourceFactory
 
 O JAR da extensão não inclui essa API; ela é fornecida pelo host Mihon/TachiyomiX. O Java 8 instalado também não é compatível com o artefato, que usa class file version 55 (Java 11+).
 
+Também foi verificada a coordenada JitPack indicada na documentação do TachiyomiX (`com.github.mihonapp:tachiyomix:1.6`). As variantes JAR/AAR consultadas retornaram HTTP 404. Mesmo quando disponível, TachiyomiX é documentado como biblioteca de stubs `compileOnly`, não como implementação completa do host.
+
 ## Conclusão
 
 Não foi possível validar search, details, chapters ou pages. A extensão real ainda não é compatível com o runtime Taiju atual, e deve permanecer desabilitada no registry. Não há evidência suficiente para afirmar que uma fonte Project Nox já pode ser executada.
 
 ## Próximo bloqueio técnico
 
-Para concluir a validação é necessário empacotar uma versão fixa e licenciada da API TachiyomiX/Mihon e suas dependências de host (Kotlin, coroutines, OkHttp, Jsoup, serialização e Injekt), além de definir o adaptador de modelos e as políticas de sandbox. Isso deve ser resolvido antes de tentar as operações de leitura.
+Para concluir a validação é necessário fornecer uma implementação host própria ou uma distribuição JVM compatível, empacotar suas dependências (Kotlin, coroutines, OkHttp, Jsoup, serialização e Injekt), além de definir o adaptador de modelos e as políticas de sandbox. Isso deve ser resolvido antes de tentar as operações de leitura.
 
 ## Fora de escopo nesta tentativa
 
