@@ -1,5 +1,9 @@
-import { mangaSearchQuerySchema } from "@taiju/contracts";
 import {
+  chapterFeedQuerySchema,
+  mangaSearchQuerySchema,
+} from "@taiju/contracts";
+import {
+  getChapterFeed,
   getMangaDetails,
   MangaDexClient,
   MangaDexHttpError,
@@ -72,6 +76,53 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Invalid manga identifier.",
       );
     return context.json(await getMangaDetails(mangaDexClient, id));
+  });
+  app.get("/api/manga/:provider/:id/chapters", async (context) => {
+    if (context.req.param("provider") !== "mangadex")
+      return jsonError(
+        context,
+        404,
+        "not_found",
+        "The requested resource was not found.",
+      );
+    const id = context.req.param("id");
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id,
+      )
+    )
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga identifier.",
+      );
+    const query = chapterFeedQuerySchema.safeParse({
+      language: context.req.query("language"),
+      limit:
+        context.req.query("limit") === undefined
+          ? undefined
+          : Number(context.req.query("limit")),
+      offset:
+        context.req.query("offset") === undefined
+          ? undefined
+          : Number(context.req.query("offset")),
+    });
+    if (!query.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid chapter feed query.",
+      );
+    return context.json(
+      await getChapterFeed(mangaDexClient, id, {
+        languages:
+          query.data.language === undefined ? undefined : [query.data.language],
+        limit: query.data.limit,
+        offset: query.data.offset,
+      }),
+    );
   });
   app.notFound((context) =>
     jsonError(

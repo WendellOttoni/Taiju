@@ -1,4 +1,5 @@
 export type {
+  ChapterFeedQuery,
   ChapterFeedResponse,
   ChapterSummary,
   MangaDetails,
@@ -8,6 +9,7 @@ export type {
   MangaSummary,
 } from "./manga";
 export {
+  chapterFeedQuerySchema,
   chapterFeedResponseSchema,
   chapterSummarySchema,
   mangaDetailsSchema,

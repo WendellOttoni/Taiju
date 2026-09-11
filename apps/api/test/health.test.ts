@@ -91,4 +91,35 @@ describe("GET /health", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).authors).toEqual(["Author"]);
   });
+
+  test("returns normalized chapters with a language filter", async () => {
+    const testApp = createApp({
+      mangaDexClient: {
+        request: async () =>
+          new Response(
+            JSON.stringify({
+              data: [
+                {
+                  id: "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+                  attributes: {
+                    chapter: "1",
+                    translatedLanguage: "en",
+                    publishAt: "2026-01-01T00:00:00.000Z",
+                  },
+                  relationships: [],
+                },
+              ],
+              total: 1,
+              limit: 20,
+              offset: 0,
+            }),
+          ),
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/mangadex/c1e53f6e-0a6e-4d03-9f06-e4761ac50de5/chapters?language=en",
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).items[0].language).toBe("en");
+  });
 });

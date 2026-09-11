@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-020 — Chapter feed provider.
+Last completed setup step: TASK-021 — Chapter API.
 
 ## Implemented
 
@@ -25,6 +25,7 @@ Last completed setup step: TASK-020 — Chapter feed provider.
 - Normalized MangaDex details endpoint for title metadata, contributors, tags, languages and cover.
 - Public manga details page linked from search results and backed by Taiju API contracts.
 - Normalized MangaDex chapter feed with language filters, pagination and scanlation groups.
+- Chapter API endpoint with validated language and pagination parameters.
 
 ## Not implemented yet
 
@@ -36,11 +37,11 @@ Last completed setup step: TASK-020 — Chapter feed provider.
 
 ## Current phase
 
-MangaDex integration / chapter feed provider complete.
+MangaDex integration / chapter API complete.
 
 ## Next task
 
-`TASK-021 — Chapter API`
+`TASK-022 — Chapter list UI`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
