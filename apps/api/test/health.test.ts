@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { SuwayomiClientError } from "@taiju/sources";
+import {
+  SuwayomiClientError,
+  SuwayomiContentUnavailableError,
+} from "@taiju/sources";
 import { app, createApp } from "../src/app";
 
 describe("GET /health", () => {
@@ -193,6 +196,56 @@ describe("GET /health", () => {
       error: {
         code: "source_runtime_unavailable",
         message: "The selected source is unavailable.",
+      },
+    });
+  });
+
+  test("reports unavailable source chapter pages without exposing host errors", async () => {
+    const testApp = createApp({
+      sources: {
+        get: async () => ({
+          chapters: async () => ({ items: [] }),
+          descriptor: {
+            capabilities: ["search", "details", "chapters", "pages"],
+            compatible: true,
+            id: "example.source:1",
+            language: "en",
+            name: "Example",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "example.source",
+            },
+            version: "1.0",
+          },
+          details: async () => ({
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "1", sourceId: "example.source:1" },
+            tags: [],
+            title: "Taiju",
+          }),
+          pages: async () => {
+            throw new SuwayomiContentUnavailableError("Host diagnostic");
+          },
+          search: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [],
+          }),
+        }),
+        list: async () => [],
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/chapters/example.source%3A1/1/pages",
+    );
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: {
+        code: "content_unavailable",
+        message:
+          "This chapter has no readable pages available from the selected source.",
       },
     });
   });

@@ -19,6 +19,7 @@ import {
   type ReadingSource,
   type SourceDirectory,
   SuwayomiClientError,
+  SuwayomiContentUnavailableError,
 } from "@taiju/sources";
 import { type Context, Hono } from "hono";
 import {
@@ -261,8 +262,11 @@ export function createApp(dependencies: ApiDependencies = {}) {
         source.search({ page, query: parsed.data.query }),
       );
       const fulfilled = searches.filter(
-        (result): result is PromiseFulfilledResult<Awaited<ReturnType<ReadingSource["search"]>>> =>
-          result.status === "fulfilled",
+        (
+          result,
+        ): result is PromiseFulfilledResult<
+          Awaited<ReturnType<ReadingSource["search"]>>
+        > => result.status === "fulfilled",
       );
       if (fulfilled.length === 0)
         return jsonError(
@@ -284,7 +288,10 @@ export function createApp(dependencies: ApiDependencies = {}) {
     const source = await resolveSource(context, sources, sourceId);
     if (source instanceof Response) return source;
     return context.json(
-      await source.search({ page: Math.floor(parsed.data.offset / parsed.data.limit) + 1, query: parsed.data.query }),
+      await source.search({
+        page: Math.floor(parsed.data.offset / parsed.data.limit) + 1,
+        query: parsed.data.query,
+      }),
     );
   });
   app.get("/api/sources", async (context) => {
@@ -295,12 +302,14 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "source_runtime_unavailable",
         "The source runtime is not configured.",
       );
-    const languages = (context.req
-      .queries("language") ?? [])
-      .filter((language) => language.trim() !== "");
+    const languages = (context.req.queries("language") ?? []).filter(
+      (language) => language.trim() !== "",
+    );
     try {
       return context.json({
-        items: await sources.list(languages.length === 0 ? undefined : languages),
+        items: await sources.list(
+          languages.length === 0 ? undefined : languages,
+        ),
       });
     } catch (error) {
       console.error(
@@ -447,6 +456,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "content_unavailable",
         "This chapter has no readable pages available from MangaDex.",
       );
+    if (error instanceof SuwayomiContentUnavailableError)
+      return jsonError(
+        context,
+        404,
+        "content_unavailable",
+        "This chapter has no readable pages available from the selected source.",
+      );
     if (error instanceof MangaDexHttpError)
       return jsonError(
         context,
@@ -554,7 +570,9 @@ async function resolveSourcesForSearch(
     const resolved = await Promise.all(
       descriptors.map((descriptor) => sources.get(descriptor.id)),
     );
-    return resolved.filter((source): source is ReadingSource => source !== undefined);
+    return resolved.filter(
+      (source): source is ReadingSource => source !== undefined,
+    );
   } catch (error) {
     console.error(
       JSON.stringify({

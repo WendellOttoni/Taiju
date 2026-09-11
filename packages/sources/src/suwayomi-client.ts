@@ -40,6 +40,9 @@ export class SuwayomiClientError extends Error {
 export class SuwayomiClientTimeoutError extends SuwayomiClientError {
   override name = "SuwayomiClientTimeoutError";
 }
+export class SuwayomiContentUnavailableError extends SuwayomiClientError {
+  override name = "SuwayomiContentUnavailableError";
+}
 export class SuwayomiRuntimeClient {
   private readonly baseUrl: string;
   private readonly fetcher: NonNullable<SuwayomiClientOptions["fetch"]>;
@@ -118,19 +121,19 @@ export class SuwayomiRuntimeClient {
   }
   async chapterPages(chapterId: string): Promise<string[]> {
     const data = await this.execute<{
-      fetchChapterPages: { pages: string[] };
+      fetchChapterPages: { pages: string[] } | null;
     }>(
       "mutation ($input: FetchChapterPagesInput!) { fetchChapterPages(input: $input) { pages } }",
       { input: { chapterId: numericId(chapterId, "chapter") } },
     );
-    if (
-      !Array.isArray(data.fetchChapterPages.pages) ||
-      data.fetchChapterPages.pages.some(
-        (page) => typeof page !== "string" || page.length === 0,
-      )
-    )
+    const pages = data.fetchChapterPages?.pages;
+    if (!Array.isArray(pages))
+      throw new SuwayomiContentUnavailableError(
+        "Suwayomi did not return readable pages for this chapter.",
+      );
+    if (pages.some((page) => typeof page !== "string" || page.length === 0))
       throw new SuwayomiClientError("Suwayomi returned invalid chapter pages.");
-    return data.fetchChapterPages.pages;
+    return pages;
   }
   async execute<T>(
     query: string,
@@ -160,7 +163,8 @@ export class SuwayomiRuntimeClient {
         };
         if (payload.data === undefined)
           throw new SuwayomiClientError(
-            payload.errors?.[0]?.message ?? "Suwayomi returned no GraphQL data.",
+            payload.errors?.[0]?.message ??
+              "Suwayomi returned no GraphQL data.",
           );
         return payload.data;
       } catch (error) {
@@ -213,7 +217,10 @@ function optionalText(value: unknown, field: string): string | undefined {
   return requireText(value, field);
 }
 function mapManga(manga: SuwayomiMangaDto, baseUrl: string): SuwayomiManga {
-  if (!Array.isArray(manga.genre) || manga.genre.some((genre) => typeof genre !== "string"))
+  if (
+    !Array.isArray(manga.genre) ||
+    manga.genre.some((genre) => typeof genre !== "string")
+  )
     throw new SuwayomiClientError("Suwayomi returned invalid manga genres.");
   return {
     artist: optionalText(manga.artist, "manga.artist"),
@@ -234,11 +241,16 @@ function absoluteUrl(value: string | undefined, baseUrl: string) {
   try {
     return new URL(value, baseUrl).toString();
   } catch {
-    throw new SuwayomiClientError("Suwayomi returned an invalid manga thumbnail URL.");
+    throw new SuwayomiClientError(
+      "Suwayomi returned an invalid manga thumbnail URL.",
+    );
   }
 }
 function mapChapter(chapter: SuwayomiChapterDto): SuwayomiChapter {
-  if (typeof chapter.chapterNumber !== "number" || !Number.isFinite(chapter.chapterNumber))
+  if (
+    typeof chapter.chapterNumber !== "number" ||
+    !Number.isFinite(chapter.chapterNumber)
+  )
     throw new SuwayomiClientError("Suwayomi returned invalid chapter number.");
   return {
     id: requireIdentifier(chapter.id, "chapter.id"),

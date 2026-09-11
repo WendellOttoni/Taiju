@@ -20,16 +20,14 @@ export {
   SourceRuntimeRemoteError,
   SourceRuntimeTimeoutError,
 } from "./jvm-runtime";
+export type { ReadingSource } from "./reading-source";
+export { SuwayomiReadingSource } from "./reading-source";
 export type {
   RegisteredSource,
   SourceListOptions,
   SourceRegistryOptions,
 } from "./registry";
 export { createSourceRegistry, SourceRegistry } from "./registry";
-export type { ReadingSource } from "./reading-source";
-export { SuwayomiReadingSource } from "./reading-source";
-export type { SourceDirectory } from "./source-directory";
-export { SuwayomiSourceDirectory } from "./source-directory";
 export type {
   RuntimeOperation,
   RuntimeRequest,
@@ -40,6 +38,8 @@ export {
   encodeRuntimeRequest,
   SourceRuntimeProtocolError,
 } from "./runtime-protocol";
+export type { SourceDirectory } from "./source-directory";
+export { SuwayomiSourceDirectory } from "./source-directory";
 export type {
   SuwayomiChapter,
   SuwayomiClientOptions,
@@ -49,5 +49,6 @@ export type {
 export {
   SuwayomiClientError,
   SuwayomiClientTimeoutError,
+  SuwayomiContentUnavailableError,
   SuwayomiRuntimeClient,
 } from "./suwayomi-client";

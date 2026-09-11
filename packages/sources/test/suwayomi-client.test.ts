@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   SuwayomiClientError,
   SuwayomiClientTimeoutError,
+  SuwayomiContentUnavailableError,
   SuwayomiRuntimeClient,
 } from "../src";
 
@@ -85,5 +86,20 @@ describe("Suwayomi runtime client", () => {
         }),
     });
     await expect(client.listSources()).resolves.toHaveLength(1);
+  });
+
+  test("classifies a chapter with no returned pages as unavailable", async () => {
+    const client = new SuwayomiRuntimeClient({
+      baseUrl: "http://suwayomi.test",
+      fetch: async () =>
+        Response.json({
+          data: { fetchChapterPages: null },
+          errors: [{ message: "The extension could not load its pages." }],
+        }),
+    });
+
+    await expect(client.chapterPages("1")).rejects.toBeInstanceOf(
+      SuwayomiContentUnavailableError,
+    );
   });
 });
