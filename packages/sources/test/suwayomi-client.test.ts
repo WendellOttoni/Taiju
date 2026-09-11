@@ -63,4 +63,27 @@ describe("Suwayomi runtime client", () => {
       SuwayomiClientTimeoutError,
     );
   });
+
+  test("keeps partial GraphQL data when the host reports a non-fatal error", async () => {
+    const client = new SuwayomiRuntimeClient({
+      baseUrl: "http://suwayomi.test",
+      fetch: async () =>
+        Response.json({
+          data: {
+            sources: {
+              nodes: [
+                {
+                  id: "1",
+                  lang: "en",
+                  name: "Example",
+                  extension: { pkgName: "example.source", versionName: "1.0" },
+                },
+              ],
+            },
+          },
+          errors: [{ message: "A secondary source operation failed." }],
+        }),
+    });
+    await expect(client.listSources()).resolves.toHaveLength(1);
+  });
 });

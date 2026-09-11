@@ -158,12 +158,10 @@ export class SuwayomiRuntimeClient {
           data?: T;
           errors?: Array<{ message?: string }>;
         };
-        if (payload.errors?.length)
-          throw new SuwayomiClientError(
-            payload.errors[0]?.message ?? "Suwayomi returned a GraphQL error.",
-          );
         if (payload.data === undefined)
-          throw new SuwayomiClientError("Suwayomi returned no GraphQL data.");
+          throw new SuwayomiClientError(
+            payload.errors?.[0]?.message ?? "Suwayomi returned no GraphQL data.",
+          );
         return payload.data;
       } catch (error) {
         if (error instanceof SuwayomiClientError) throw error;
