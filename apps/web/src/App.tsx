@@ -255,7 +255,7 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
                 chapters.map((chapter) => (
                   <a
                     key={`${chapter.provider}:${chapter.providerId}`}
-                    href={`/reader/${chapter.provider}/${chapter.providerId}`}
+                    href={`/reader/${chapter.provider}/${chapter.providerId}?manga=${id}`}
                     className="flex items-center justify-between gap-4 p-4 hover:bg-zinc-800"
                   >
                     <div>
@@ -296,6 +296,9 @@ function Detail({ label, values }: { label: string; values: string[] }) {
 function ReaderPage({ provider, id }: { provider: string; id: string }) {
   const [chapter, setChapter] = useState<ReaderChapter | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failedPages, setFailedPages] = useState<Set<number>>(() => new Set());
+  const [siblings, setSiblings] = useState<ChapterSummary[]>([]);
+  const mangaId = new URLSearchParams(window.location.search).get("manga");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -319,21 +322,91 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
     return () => controller.abort();
   }, [id, provider]);
 
+  useEffect(() => {
+    if (mangaId === null) return;
+    const controller = new AbortController();
+    void fetch(`/api/manga/${provider}/${mangaId}/chapters?limit=100`, {
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((data) => {
+        if (data !== undefined)
+          setSiblings(chapterFeedResponseSchema.parse(data).items);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [mangaId, provider]);
+
+  const currentIndex = siblings.findIndex((item) => item.providerId === id);
+  const previous = currentIndex > 0 ? siblings[currentIndex - 1] : undefined;
+  const next = currentIndex >= 0 ? siblings[currentIndex + 1] : undefined;
+
   if (error)
     return (
       <main className="min-h-screen bg-zinc-950 p-8 text-red-300">{error}</main>
     );
   return (
-    <main className="min-h-screen bg-zinc-950 p-8 text-zinc-50">
-      <a href="/" className="text-amber-400">
-        ← Voltar à busca
-      </a>
-      <h1 className="mt-6 text-3xl font-bold">Leitor</h1>
-      <p className="mt-3 text-zinc-300" role="status">
-        {chapter === null
-          ? "Preparando páginas…"
-          : `${chapter.pageUrls.length} páginas prontas.`}
-      </p>
+    <main className="min-h-screen bg-zinc-950 text-zinc-50">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur">
+        <a href="/" className="text-amber-400">
+          ← Voltar
+        </a>
+        <span className="text-sm text-zinc-400">Leitor vertical</span>
+      </header>
+      {chapter === null ? (
+        <p className="p-8 text-zinc-300" role="status">
+          Preparando páginas…
+        </p>
+      ) : (
+        <section className="mx-auto max-w-5xl">
+          {chapter.pageUrls.map((pageUrl, index) =>
+            failedPages.has(index) ? (
+              <div
+                key={pageUrl}
+                className="grid aspect-[2/3] place-items-center bg-zinc-900 text-zinc-400"
+              >
+                Falha ao carregar a página {index + 1}.
+              </div>
+            ) : (
+              <img
+                key={pageUrl}
+                src={pageUrl}
+                alt={`Página ${index + 1}`}
+                loading="lazy"
+                className="block w-full"
+                onLoad={() =>
+                  localStorage.setItem(`taiju:reader:${id}`, String(index + 1))
+                }
+                onError={() =>
+                  setFailedPages((current) => new Set(current).add(index))
+                }
+              />
+            ),
+          )}
+          <nav className="flex justify-between gap-4 p-6">
+            {previous ? (
+              <a
+                href={`/reader/${provider}/${previous.providerId}?manga=${mangaId ?? ""}`}
+                className="rounded bg-zinc-800 px-4 py-2"
+              >
+                ← Capítulo anterior
+              </a>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <a
+                href={`/reader/${provider}/${next.providerId}?manga=${mangaId ?? ""}`}
+                className="rounded bg-zinc-800 px-4 py-2"
+              >
+                Próximo capítulo →
+              </a>
+            ) : (
+              <span />
+            )}
+          </nav>
+        </section>
+      )}
     </main>
   );
 }

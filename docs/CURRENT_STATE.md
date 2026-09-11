@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-024 — Reader foundation.
+Last completed setup step: TASK-025 — Vertical reader.
 
 ## Implemented
 
@@ -29,22 +29,23 @@ Last completed setup step: TASK-024 — Reader foundation.
 - Chapter list rendered on manga detail pages.
 - MangaDex@Home chapter-page resolver isolated in the provider package.
 - Reader route and normalized chapter-page endpoint.
+- Vertical reader with lazy-loaded pages, per-page failure feedback, chapter navigation and local progress capture.
 
 ## Not implemented yet
 
 - PostgreSQL/Drizzle setup;
 - authentication;
-- reader;
+- paged reader and reader preferences;
 - user library/progress;
 - anime features.
 
 ## Current phase
 
-MangaDex integration / reader foundation complete.
+MangaDex integration / vertical reader complete.
 
 ## Next task
 
-`TASK-025 — Vertical reader`
+`TASK-026 — Paged reader`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
