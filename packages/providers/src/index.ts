@@ -12,4 +12,6 @@ export {
   MangaDexRateLimitError,
   MangaDexTimeoutError,
 } from "./mangadex/errors";
+export type { MangaDexChapterPages } from "./mangadex/pages";
+export { resolveChapterPages } from "./mangadex/pages";
 export { searchManga } from "./mangadex/search";

@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-022 — Chapter list UI.
+Last completed setup step: TASK-023 — MangaDex@Home page resolver.
 
 ## Implemented
 
@@ -27,6 +27,7 @@ Last completed setup step: TASK-022 — Chapter list UI.
 - Normalized MangaDex chapter feed with language filters, pagination and scanlation groups.
 - Chapter API endpoint with validated language and pagination parameters.
 - Chapter list rendered on manga detail pages.
+- MangaDex@Home chapter-page resolver isolated in the provider package.
 
 ## Not implemented yet
 
@@ -38,11 +39,11 @@ Last completed setup step: TASK-022 — Chapter list UI.
 
 ## Current phase
 
-MangaDex integration / chapter list UI complete.
+MangaDex integration / page resolver complete.
 
 ## Next task
 
-`TASK-023 — MangaDex@Home page resolver`
+`TASK-024 — Reader foundation`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

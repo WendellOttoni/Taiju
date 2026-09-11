@@ -5,6 +5,7 @@ import {
   MangaDexHttpError,
   MangaDexRateLimitError,
   MangaDexTimeoutError,
+  resolveChapterPages,
 } from "../src";
 
 describe("MangaDexClient", () => {
@@ -118,4 +119,22 @@ test("normalizes a paginated MangaDex chapter feed", async () => {
   );
   expect(path).toContain("translatedLanguage%5B%5D=en");
   expect(result.items[0]?.scanlationGroup?.name).toBe("Group");
+});
+
+test("resolves MangaDex@Home pages through the provider protocol", async () => {
+  const result = await resolveChapterPages(
+    {
+      request: async () =>
+        new Response(
+          JSON.stringify({
+            baseUrl: "https://uploads.mangadex.org",
+            chapter: { hash: "hash", data: ["1.jpg"] },
+          }),
+        ),
+    },
+    "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+  );
+  expect(result.pages).toEqual([
+    "https://uploads.mangadex.org/data/hash/1.jpg",
+  ]);
 });
