@@ -15,7 +15,11 @@ import {
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
-import type { ReadingSource, SourceDirectory } from "@taiju/sources";
+import {
+  type ReadingSource,
+  type SourceDirectory,
+  SuwayomiClientError,
+} from "@taiju/sources";
 import { type Context, Hono } from "hono";
 import {
   AuthenticationError,
@@ -449,6 +453,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         503,
         "provider_unavailable",
         "MangaDex is unavailable.",
+      );
+    if (error instanceof SuwayomiClientError)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The selected source is unavailable.",
       );
     if (error instanceof AuthenticationError)
       return jsonError(context, 401, "unauthorized", error.message);

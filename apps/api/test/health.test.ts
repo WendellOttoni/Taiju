@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { SuwayomiClientError } from "@taiju/sources";
 import { app, createApp } from "../src/app";
 
 describe("GET /health", () => {
@@ -148,6 +149,51 @@ describe("GET /health", () => {
           title: "Taiju",
         },
       ],
+    });
+  });
+
+  test("translates source runtime failures without exposing host errors", async () => {
+    const testApp = createApp({
+      sources: {
+        get: async () => ({
+          chapters: async () => ({ items: [] }),
+          descriptor: {
+            capabilities: ["search"],
+            compatible: true,
+            id: "example.source:1",
+            language: "en",
+            name: "Example",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "example.source",
+            },
+            version: "1.0",
+          },
+          details: async () => {
+            throw new SuwayomiClientError("Host diagnostic");
+          },
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "1", sourceId: "example.source:1" },
+          }),
+          search: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [],
+          }),
+        }),
+        list: async () => [],
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/example.source%3A1/1",
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: {
+        code: "source_runtime_unavailable",
+        message: "The selected source is unavailable.",
+      },
     });
   });
 

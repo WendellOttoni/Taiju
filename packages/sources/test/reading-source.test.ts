@@ -46,6 +46,7 @@ test("maps Suwayomi search results to Taiju-owned source references", async () =
   );
 
   await expect(source.search({ page: 1, query: "Taiju" })).resolves.toEqual({
+    failedSourceIds: [],
     hasNextPage: false,
     items: [
       {

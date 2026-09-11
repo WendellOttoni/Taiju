@@ -52,13 +52,14 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - As rotas de busca, detalhes, capítulos e páginas aceitam identificadores de fonte do runtime e delegam à interface normalizada; o caminho MangaDex permanece como compatibilidade temporária.
 - Interface de descoberta, detalhes, capítulos e leitor migrada para referências de fonte; a busca exige escolha explícita de uma fonte `pt-BR` ou `en` disponível.
 - Busca em todas as fontes disponíveis com concorrência limitada, resultados parciais e aviso de fontes que falharam; a fonte escolhida é persistida localmente, sem conta.
+- Falhas HTTP, GraphQL e timeout do Suwayomi são traduzidas para `503 source_runtime_unavailable`; o log da API mantém o diagnóstico do host sem expô-lo ao navegador.
 
 ## Not implemented yet
 
 - Escolha de fallback e fontes equivalentes por título.
 - Preferências de idioma e migração do histórico/biblioteca para IDs externos não UUID quando a conta for reintroduzida.
-- Scanner catalog-wide: compatibilidade deve ser confirmada por fonte instalada no sidecar, não inferida apenas do catálogo.
 - Validação persistente ao vivo de busca, detalhes, capítulos e páginas em uma fonte de fixture.
+- Scanner catalog-wide e estratégia de atualização/cache do catálogo ainda não foram implementados.
 
 ## Current phase
 
@@ -66,7 +67,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-015 — Multi-source search orchestration`
+Próxima prioridade: validação ao vivo persistente do sidecar e scanner catalog-wide.
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
