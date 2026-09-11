@@ -37,9 +37,3 @@ Thumbs.db
 *.sqlite3
 .tmp/
 tmp/
-node_modules/
-dist/
-coverage/
-.env
-.env.*
-!.env.example

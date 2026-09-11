@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-001 — Bootstrap the monorepo.
+Last completed setup step: TASK-002 — Code quality baseline.
 
 ## Implemented
 
@@ -16,6 +16,7 @@ Last completed setup step: TASK-001 — Bootstrap the monorepo.
 - Tailwind CSS and shadcn/ui project configuration for the web app;
 - shared contracts, providers and database package boundaries;
 - shared TypeScript compiler baseline.
+- Biome formatting, linting and import-organization baseline.
 
 ## Not implemented yet
 
@@ -31,13 +32,13 @@ Last completed setup step: TASK-001 — Bootstrap the monorepo.
 
 ## Current phase
 
-Foundation / bootstrap complete.
+Foundation / code-quality baseline complete.
 
 ## Next task
 
-`TASK-002 — Establish shared contracts package`
+`TASK-003 — API foundation`
 
-See `docs/ROADMAP.md`.
+See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
 

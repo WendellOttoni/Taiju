@@ -11,10 +11,13 @@
     "dev:api": "bun --filter @taiju/api dev",
     "dev:web": "bun --filter @taiju/web dev",
     "build": "bun --filter '*' build",
+    "format": "biome format --write .",
+    "lint": "biome check .",
     "typecheck": "bun --filter '*' typecheck",
     "test": "bun --filter '*' test"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
     "typescript": "^5.9.3"
   }
 }
