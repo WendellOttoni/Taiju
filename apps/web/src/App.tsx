@@ -1,10 +1,25 @@
-import { type MangaSummary, mangaSearchResponseSchema } from "@taiju/contracts";
+import {
+  type MangaDetails,
+  type MangaSummary,
+  mangaDetailsSchema,
+  mangaSearchResponseSchema,
+} from "@taiju/contracts";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const debounceMs = 350;
 
 export function App() {
+  const match = window.location.pathname.match(
+    /^\/manga\/(mangadex)\/([0-9a-f-]{36})$/i,
+  );
+  if (match === null) return <SearchPage />;
+  const [, provider, id] = match;
+  if (provider === undefined || id === undefined) return <SearchPage />;
+  return <DetailsPage provider={provider} id={id} />;
+}
+
+function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MangaSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,8 +109,9 @@ export function App() {
           )}
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {results.map((manga) => (
-            <article
+            <a
               key={`${manga.provider}:${manga.providerId}`}
+              href={`/manga/${manga.provider}/${manga.providerId}`}
               className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
             >
               <div className="aspect-[2/3] bg-zinc-800">
@@ -116,10 +132,95 @@ export function App() {
                   </p>
                 )}
               </div>
-            </article>
+            </a>
           ))}
         </div>
       </section>
     </main>
+  );
+}
+
+function DetailsPage({ provider, id }: { provider: string; id: string }) {
+  const [manga, setManga] = useState<MangaDetails | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(`/api/manga/${provider}/${id}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok)
+          throw new Error("Não foi possível carregar os detalhes.");
+        setManga(mangaDetailsSchema.parse(await response.json()));
+      } catch (reason) {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível carregar os detalhes.",
+          );
+      }
+    })();
+    return () => controller.abort();
+  }, [id, provider]);
+  if (error)
+    return (
+      <main className="min-h-screen bg-zinc-950 p-8 text-red-300" role="alert">
+        {error}
+      </main>
+    );
+  if (manga === null)
+    return (
+      <main
+        className="min-h-screen bg-zinc-950 p-8 text-zinc-300"
+        role="status"
+      >
+        Carregando detalhes…
+      </main>
+    );
+  return (
+    <main className="min-h-screen bg-zinc-950 px-6 py-12 text-zinc-50">
+      <section className="mx-auto grid max-w-5xl gap-8 md:grid-cols-[16rem_1fr]">
+        <div className="aspect-[2/3] overflow-hidden rounded-xl bg-zinc-800">
+          {manga.coverUrl && (
+            <img
+              src={manga.coverUrl}
+              alt={`Capa de ${manga.title}`}
+              className="h-full w-full object-cover"
+            />
+          )}
+        </div>
+        <div>
+          <a href="/" className="text-sm text-amber-400">
+            ← Voltar à busca
+          </a>
+          <h1 className="mt-5 text-4xl font-bold">{manga.title}</h1>
+          {manga.alternativeTitles.length > 0 && (
+            <p className="mt-2 text-zinc-400">
+              {manga.alternativeTitles.join(" · ")}
+            </p>
+          )}
+          {manga.description && (
+            <p className="mt-6 leading-7 text-zinc-300">{manga.description}</p>
+          )}
+          <dl className="mt-8 grid gap-4 sm:grid-cols-2">
+            <Detail label="Autores" values={manga.authors} />
+            <Detail label="Artistas" values={manga.artists} />
+            <Detail label="Idiomas" values={manga.availableLanguages} />
+            <Detail label="Tags" values={manga.tags} />
+          </dl>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function Detail({ label, values }: { label: string; values: string[] }) {
+  return values.length === 0 ? null : (
+    <div>
+      <dt className="text-sm text-zinc-500">{label}</dt>
+      <dd className="mt-1 text-zinc-200">{values.join(" · ")}</dd>
+    </div>
   );
 }

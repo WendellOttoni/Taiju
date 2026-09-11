@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-014 — Manga details API.
+Last completed setup step: TASK-015 — Manga details page.
 
 ## Implemented
 
@@ -23,6 +23,7 @@ Last completed setup step: TASK-014 — Manga details API.
 - Manga search API endpoint backed by the isolated MangaDex provider adapter.
 - Responsive search UI consuming only the Taiju API contract.
 - Normalized MangaDex details endpoint for title metadata, contributors, tags, languages and cover.
+- Public manga details page linked from search results and backed by Taiju API contracts.
 
 ## Not implemented yet
 
@@ -35,11 +36,11 @@ Last completed setup step: TASK-014 — Manga details API.
 
 ## Current phase
 
-MangaDex integration / manga details API complete.
+MangaDex integration / manga details page complete.
 
 ## Next task
 
-`TASK-015 — Manga details page`
+`TASK-020 — Chapter feed provider`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
