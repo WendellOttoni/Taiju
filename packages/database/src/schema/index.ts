@@ -77,3 +77,32 @@ export const libraryEntries = pgTable(
     ),
   ],
 );
+
+export const readingHistory = pgTable(
+  "reading_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mangaProvider: text("manga_provider").notNull(),
+    mangaProviderId: uuid("manga_provider_id").notNull(),
+    chapterProvider: text("chapter_provider").notNull(),
+    chapterProviderId: uuid("chapter_provider_id").notNull(),
+    page: text("page").notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("reading_history_user_manga_unique").on(
+      table.userId,
+      table.mangaProvider,
+      table.mangaProviderId,
+    ),
+    index("reading_history_user_updated_at_index").on(
+      table.userId,
+      table.updatedAt,
+    ),
+  ],
+);

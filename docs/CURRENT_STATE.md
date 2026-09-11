@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-033 — Library/favorites.
+Last completed setup step: TASK-034 — Reading history.
 
 ## Implemented
 
@@ -36,10 +36,11 @@ Last completed setup step: TASK-033 — Library/favorites.
 - Taiju-owned `users` and `profiles` tables with a generated migration and normalized unique email constraint.
 - E-mail/password authentication with Argon2id hashes, signed seven-day JWTs and authenticated-user endpoint.
 - Authenticated library endpoints and persisted MangaDex favorites with user-scoped uniqueness.
+- User-scoped reading history records for manga, chapter, page and last update, with an indexed upsert model.
 
 ## Not implemented yet
 
-- reading history and synchronized progress;
+- synchronized progress;
 - anime features.
 
 ## Current phase
@@ -48,7 +49,7 @@ Authentication complete; personal manga state is next.
 
 ## Next task
 
-`TASK-034 — Reading history`
+`TASK-035 — Reading progress synchronization`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
