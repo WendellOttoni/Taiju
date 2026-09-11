@@ -53,6 +53,9 @@
     "packages/providers": {
       "name": "@taiju/providers",
       "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.2",
+      },
     },
   },
   "packages": {

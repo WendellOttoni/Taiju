@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-003 — API foundation.
+Last completed setup step: TASK-010 — MangaDex HTTP client.
 
 ## Implemented
 
@@ -18,10 +18,10 @@ Last completed setup step: TASK-003 — API foundation.
 - shared TypeScript compiler baseline.
 - Biome formatting, linting and import-organization baseline.
 - API environment validation, structured request logging and consistent JSON errors.
+- Isolated MangaDex HTTP client with timeout, cancellation and rate-limit error translation.
 
 ## Not implemented yet
 
-- MangaDex integration;
 - PostgreSQL/Drizzle setup;
 - authentication;
 - manga search;
@@ -33,11 +33,11 @@ Last completed setup step: TASK-003 — API foundation.
 
 ## Current phase
 
-Foundation / API foundation complete.
+MangaDex integration / HTTP client complete.
 
 ## Next task
 
-`TASK-010 — MangaDex HTTP client`
+`TASK-011 — Normalized manga search contract`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

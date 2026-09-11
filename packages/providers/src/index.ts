@@ -1,2 +1,11 @@
-// Provider adapters are intentionally not implemented during the workspace bootstrap.
-export {};
+export type {
+  MangaDexClientOptions,
+  MangaDexRequestOptions,
+} from "./mangadex/client";
+export { MangaDexClient } from "./mangadex/client";
+export type { MangaDexRateLimit } from "./mangadex/errors";
+export {
+  MangaDexHttpError,
+  MangaDexRateLimitError,
+  MangaDexTimeoutError,
+} from "./mangadex/errors";

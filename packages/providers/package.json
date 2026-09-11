@@ -7,8 +7,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "echo 'Providers package has no build output yet.'",
+    "build": "bun build src/index.ts --outdir dist --target bun",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'No provider tests configured yet.'"
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2"
   }
 }
