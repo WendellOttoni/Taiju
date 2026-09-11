@@ -60,3 +60,5 @@ See `docs/DEVELOPMENT_PLAN.md`.
 Authentication is enabled only when both `DATABASE_URL` and `AUTH_JWT_SECRET` are configured; migrations require a running PostgreSQL instance and were not applied in this workspace.
 
 Anime work is explicitly deferred and outside the current scope.
+
+Para teste na mesma rede, o frontend possui o comando `bun run dev:web:lan`; o proxy Vite mantém as requisições `/api` no backend local.

@@ -10,6 +10,7 @@
     "dev": "bun --filter '*' dev",
     "dev:api": "bun --filter @taiju/api dev",
     "dev:web": "bun --filter @taiju/web dev",
+    "dev:web:lan": "bun --filter @taiju/web dev:lan",
     "build": "bun --filter '*' build",
     "format": "biome format --write .",
     "lint": "biome check .",
