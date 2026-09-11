@@ -62,4 +62,33 @@ describe("GET /health", () => {
       offset: 0,
     });
   });
+
+  test("returns normalized manga details", async () => {
+    const testApp = createApp({
+      mangaDexClient: {
+        request: async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                id: "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+                attributes: {
+                  title: { en: "Taiju" },
+                  altTitles: [{ ja: "大樹" }],
+                  availableTranslatedLanguages: ["en"],
+                  tags: [],
+                },
+                relationships: [
+                  { type: "author", attributes: { name: "Author" } },
+                ],
+              },
+            }),
+          ),
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/mangadex/a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).authors).toEqual(["Author"]);
+  });
 });

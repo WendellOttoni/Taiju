@@ -25,6 +25,13 @@ export const mangaSearchQuerySchema = z.object({
   offset: z.number().int().min(0).default(0),
 });
 
+export const mangaDetailsSchema = mangaSummarySchema.extend({
+  alternativeTitles: z.array(z.string().trim().min(1)),
+  authors: z.array(z.string().trim().min(1)),
+  artists: z.array(z.string().trim().min(1)),
+  availableLanguages: z.array(z.string().trim().min(1)),
+});
+
 export const mangaSearchResponseSchema = z.object({
   items: z.array(mangaSummarySchema),
   total: z.number().int().min(0),
@@ -34,5 +41,6 @@ export const mangaSearchResponseSchema = z.object({
 
 export type MangaStatus = z.infer<typeof mangaStatusSchema>;
 export type MangaSummary = z.infer<typeof mangaSummarySchema>;
+export type MangaDetails = z.infer<typeof mangaDetailsSchema>;
 export type MangaSearchQuery = z.infer<typeof mangaSearchQuerySchema>;
 export type MangaSearchResponse = z.infer<typeof mangaSearchResponseSchema>;

@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-013 — Search UI.
+Last completed setup step: TASK-014 — Manga details API.
 
 ## Implemented
 
@@ -22,12 +22,12 @@ Last completed setup step: TASK-013 — Search UI.
 - Shared Zod contracts for normalized manga search requests, summaries and paginated responses.
 - Manga search API endpoint backed by the isolated MangaDex provider adapter.
 - Responsive search UI consuming only the Taiju API contract.
+- Normalized MangaDex details endpoint for title metadata, contributors, tags, languages and cover.
 
 ## Not implemented yet
 
 - PostgreSQL/Drizzle setup;
 - authentication;
-- manga details;
 - chapter listing;
 - reader;
 - user library/progress;
@@ -35,11 +35,11 @@ Last completed setup step: TASK-013 — Search UI.
 
 ## Current phase
 
-MangaDex integration / search UI complete.
+MangaDex integration / manga details API complete.
 
 ## Next task
 
-`TASK-014 — Manga details API`
+`TASK-015 — Manga details page`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
