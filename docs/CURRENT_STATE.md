@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-008 — Source registry.
+Last completed setup step: TASK-009 — Source runtime investigation.
 
 ## Implemented
 
@@ -44,6 +44,7 @@ Last completed setup step: TASK-008 — Source registry.
 - Isolated Project Nox `index.pb` catalog client with timeout, cancellation, size bounds and deterministic fetch injection.
 - Project Nox protobuf/gzip index decoder with normalized extension/source catalog models and deterministic fixtures.
 - In-memory source registry with stable IDs, language normalization/prioritization, provenance and enablement state.
+- Runtime investigation completed: Project Nox extensions are JVM/Android artifacts; direct Bun execution was rejected and an isolated JVM worker was selected for the proof of concept.
 
 ## Not implemented yet
 
@@ -55,7 +56,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-009 — Source runtime investigation`
+`TASK-010 — Source runtime foundation`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
