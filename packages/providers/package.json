@@ -1,0 +1,14 @@
+{
+  "name": "@taiju/providers",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo 'Providers package has no build output yet.'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'No provider tests configured yet.'"
+  }
+}

@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: repository foundation documentation.
+Last completed setup step: TASK-001 — Bootstrap the monorepo.
 
 ## Implemented
 
@@ -10,15 +10,15 @@ Last completed setup step: repository foundation documentation.
 - agent-development rules documented;
 - initial architecture documented;
 - roadmap created;
-- first implementation task prepared.
+- Bun workspace bootstrap;
+- Hono API application with a tested `GET /health` endpoint;
+- React/Vite web starter branded as Taiju;
+- Tailwind CSS and shadcn/ui project configuration for the web app;
+- shared contracts, providers and database package boundaries;
+- shared TypeScript compiler baseline.
 
 ## Not implemented yet
 
-- Bun workspace bootstrap;
-- React/Vite web app;
-- Hono API;
-- shared contracts package;
-- provider package;
 - MangaDex integration;
 - PostgreSQL/Drizzle setup;
 - authentication;
@@ -31,14 +31,14 @@ Last completed setup step: repository foundation documentation.
 
 ## Current phase
 
-Foundation / pre-implementation.
+Foundation / bootstrap complete.
 
 ## Next task
 
-`TASK-001 — Bootstrap the monorepo`
+`TASK-002 — Establish shared contracts package`
 
-See `docs/tasks/TASK-001-bootstrap.md`.
+See `docs/ROADMAP.md`.
 
 ## Known issues
 
-None yet. The repository intentionally contains no product implementation before TASK-001.
+The database package intentionally has no Drizzle configuration or schema. Those choices require a dedicated persistence task.

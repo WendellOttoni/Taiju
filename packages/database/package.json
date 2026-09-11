@@ -1,0 +1,14 @@
+{
+  "name": "@taiju/database",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo 'Database package has no build output yet.'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'No database tests configured yet.'"
+  }
+}

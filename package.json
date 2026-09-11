@@ -1,0 +1,20 @@
+{
+  "name": "taiju",
+  "private": true,
+  "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --filter '*' dev",
+    "dev:api": "bun --filter @taiju/api dev",
+    "dev:web": "bun --filter @taiju/web dev",
+    "build": "bun --filter '*' build",
+    "typecheck": "bun --filter '*' typecheck",
+    "test": "bun --filter '*' test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
