@@ -15,7 +15,7 @@ import {
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
-import type { SourceDirectory } from "@taiju/sources";
+import type { ReadingSource, SourceDirectory } from "@taiju/sources";
 import { type Context, Hono } from "hono";
 import {
   AuthenticationError,
@@ -246,7 +246,14 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "validation_error",
         "Invalid manga search query.",
       );
-    return context.json(await searchManga(mangaDexClient, parsed.data));
+    const sourceId = context.req.query("source")?.trim();
+    if (sourceId === undefined || sourceId === "")
+      return context.json(await searchManga(mangaDexClient, parsed.data));
+    const source = await resolveSource(context, sources, sourceId);
+    if (source instanceof Response) return source;
+    return context.json(
+      await source.search({ page: Math.floor(parsed.data.offset / parsed.data.limit) + 1, query: parsed.data.query }),
+    );
   });
   app.get("/api/sources", async (context) => {
     if (sources === undefined)
@@ -280,13 +287,15 @@ export function createApp(dependencies: ApiDependencies = {}) {
     }
   });
   app.get("/api/manga/:provider/:id", async (context) => {
-    if (context.req.param("provider") !== "mangadex")
-      return jsonError(
+    if (context.req.param("provider") !== "mangadex") {
+      const source = await resolveSource(
         context,
-        404,
-        "not_found",
-        "The requested resource was not found.",
+        sources,
+        context.req.param("provider"),
       );
+      if (source instanceof Response) return source;
+      return context.json(await source.details(context.req.param("id")));
+    }
     const id = context.req.param("id");
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -302,13 +311,15 @@ export function createApp(dependencies: ApiDependencies = {}) {
     return context.json(await getMangaDetails(mangaDexClient, id));
   });
   app.get("/api/manga/:provider/:id/chapters", async (context) => {
-    if (context.req.param("provider") !== "mangadex")
-      return jsonError(
+    if (context.req.param("provider") !== "mangadex") {
+      const source = await resolveSource(
         context,
-        404,
-        "not_found",
-        "The requested resource was not found.",
+        sources,
+        context.req.param("provider"),
       );
+      if (source instanceof Response) return source;
+      return context.json(await source.chapters(context.req.param("id")));
+    }
     const id = context.req.param("id");
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -349,13 +360,15 @@ export function createApp(dependencies: ApiDependencies = {}) {
     );
   });
   app.get("/api/chapters/:provider/:id/pages", async (context) => {
-    if (context.req.param("provider") !== "mangadex")
-      return jsonError(
+    if (context.req.param("provider") !== "mangadex") {
+      const source = await resolveSource(
         context,
-        404,
-        "not_found",
-        "The requested resource was not found.",
+        sources,
+        context.req.param("provider"),
       );
+      if (source instanceof Response) return source;
+      return context.json(await source.pages(context.req.param("id")));
+    }
     const id = context.req.param("id");
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -445,6 +458,45 @@ async function authenticatedUser(
       "Authentication is required.",
     );
   return auth.authenticate(token);
+}
+
+async function resolveSource(
+  context: Context,
+  sources: SourceDirectory | undefined,
+  sourceId: string,
+): Promise<ReadingSource | Response> {
+  if (sources === undefined)
+    return jsonError(
+      context,
+      503,
+      "source_runtime_unavailable",
+      "The source runtime is not configured.",
+    );
+  try {
+    const source = await sources.get(sourceId);
+    if (source !== undefined) return source;
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        event: "source_resolve_error",
+        message: error instanceof Error ? error.message : "Unknown error",
+        sourceId,
+      }),
+    );
+    return jsonError(
+      context,
+      503,
+      "source_runtime_unavailable",
+      "The source runtime is unavailable.",
+    );
+  }
+  return jsonError(
+    context,
+    404,
+    "not_found",
+    "The requested source was not found.",
+  );
 }
 
 function isUuid(value: string): boolean {

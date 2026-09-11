@@ -1,14 +1,13 @@
 import type { SourceSummary } from "../../contracts/src";
 import { sourceSummarySchema } from "../../contracts/src";
 
+import { type ReadingSource, SuwayomiReadingSource } from "./reading-source";
 import { type SuwayomiSource, SuwayomiRuntimeClient } from "./suwayomi-client";
 
 export type SourceDirectory = {
-  get(id: string): Promise<SuwayomiReadingSource | undefined>;
+  get(id: string): Promise<ReadingSource | undefined>;
   list(languages?: string[]): Promise<SourceSummary[]>;
 };
-
-import { SuwayomiReadingSource } from "./reading-source";
 
 const catalogUrl = "https://github.com/Awerkori/extensoes/raw/repo/index.pb";
 
@@ -27,7 +26,7 @@ export class SuwayomiSourceDirectory implements SourceDirectory {
       .sort((left, right) => left.name.localeCompare(right.name));
   }
 
-  async get(id: string): Promise<SuwayomiReadingSource | undefined> {
+  async get(id: string): Promise<ReadingSource | undefined> {
     const source = (await this.client.listSources()).find(
       (candidate) => descriptorId(candidate) === id,
     );

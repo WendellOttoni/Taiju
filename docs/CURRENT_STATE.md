@@ -49,6 +49,7 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - Cliente GraphQL Suwayomi com timeout, cancelamento e tradução de falhas.
 - Adaptador de leitura Suwayomi para busca, detalhes, capítulos e páginas, convertido para contratos Taiju com referências explícitas de fonte.
 - `GET /api/sources` lista somente fontes efetivamente carregadas no sidecar Suwayomi; aceita `language` repetido como filtro e não expõe DTOs do host.
+- As rotas de busca, detalhes, capítulos e páginas aceitam identificadores de fonte do runtime e delegam à interface normalizada; o caminho MangaDex permanece como compatibilidade temporária.
 
 ## Not implemented yet
 

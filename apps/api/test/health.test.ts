@@ -90,6 +90,65 @@ describe("GET /health", () => {
     });
   });
 
+  test("delegates a selected source search through the neutral contract", async () => {
+    const testApp = createApp({
+      sources: {
+        get: async () => ({
+          chapters: async () => ({ items: [] }),
+          descriptor: {
+            capabilities: ["search"],
+            compatible: true,
+            id: "example.source:1",
+            language: "en",
+            name: "Example",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "example.source",
+            },
+            version: "1.0",
+          },
+          details: async () => ({
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "1", sourceId: "example.source:1" },
+            tags: [],
+            title: "Taiju",
+          }),
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "1", sourceId: "example.source:1" },
+          }),
+          search: async ({ query }) => ({
+            hasNextPage: false,
+            items: [
+              {
+                source: { externalId: "1", sourceId: "example.source:1" },
+                tags: [],
+                title: query,
+              },
+            ],
+          }),
+        }),
+        list: async () => [],
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/search?q=Taiju&source=example.source%3A1",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      hasNextPage: false,
+      items: [
+        {
+          source: { externalId: "1", sourceId: "example.source:1" },
+          tags: [],
+          title: "Taiju",
+        },
+      ],
+    });
+  });
+
   test("returns normalized manga details", async () => {
     const testApp = createApp({
       mangaDexClient: {
