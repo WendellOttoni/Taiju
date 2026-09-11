@@ -12,6 +12,12 @@ test("lists only runtime-loaded sources with normalized language metadata", asyn
             sources: {
               nodes: [
                 {
+                  id: "0",
+                  lang: "localsourcelang",
+                  name: "Local source",
+                  extension: { pkgName: "local.source", versionName: "1.0" },
+                },
+                {
                   id: "7",
                   lang: "pt_br",
                   name: "Fonte",

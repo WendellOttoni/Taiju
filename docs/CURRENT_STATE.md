@@ -53,6 +53,7 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - Interface de descoberta, detalhes, capítulos e leitor migrada para referências de fonte; a busca exige escolha explícita de uma fonte `pt-BR` ou `en` disponível.
 - Busca em todas as fontes disponíveis com concorrência limitada, resultados parciais e aviso de fontes que falharam; a fonte escolhida é persistida localmente, sem conta.
 - Falhas HTTP, GraphQL e timeout do Suwayomi são traduzidas para `503 source_runtime_unavailable`; o log da API mantém o diagnóstico do host sem expô-lo ao navegador.
+- Entradas internas do runtime com idioma fora do contrato Taiju (por exemplo, `Local source`) são ignoradas individualmente e não impedem a enumeração das fontes instaladas.
 
 ## Not implemented yet
 

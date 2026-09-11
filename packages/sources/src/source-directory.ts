@@ -1,5 +1,5 @@
 import type { SourceSummary } from "../../contracts/src";
-import { sourceSummarySchema } from "../../contracts/src";
+import { sourceLanguageSchema, sourceSummarySchema } from "../../contracts/src";
 
 import { type ReadingSource, SuwayomiReadingSource } from "./reading-source";
 import { type SuwayomiSource, SuwayomiRuntimeClient } from "./suwayomi-client";
@@ -18,6 +18,7 @@ export class SuwayomiSourceDirectory implements SourceDirectory {
     const normalizedLanguages = languages?.map(normalizeLanguage);
     return (await this.client.listSources())
       .map(toDescriptor)
+      .filter((source): source is SourceSummary => source !== undefined)
       .filter(
         (source) =>
           normalizedLanguages === undefined ||
@@ -30,18 +31,22 @@ export class SuwayomiSourceDirectory implements SourceDirectory {
     const source = (await this.client.listSources()).find(
       (candidate) => descriptorId(candidate) === id,
     );
-    return source === undefined
+    if (source === undefined) return undefined;
+    const descriptor = toDescriptor(source);
+    return descriptor === undefined
       ? undefined
-      : new SuwayomiReadingSource(toDescriptor(source), source.id, this.client);
+      : new SuwayomiReadingSource(descriptor, source.id, this.client);
   }
 }
 
-function toDescriptor(source: SuwayomiSource): SourceSummary {
+function toDescriptor(source: SuwayomiSource): SourceSummary | undefined {
+  const language = sourceLanguageSchema.safeParse(normalizeLanguage(source.language));
+  if (!language.success) return undefined;
   return sourceSummarySchema.parse({
     capabilities: ["search", "details", "chapters", "pages"],
     compatible: true,
     id: descriptorId(source),
-    language: normalizeLanguage(source.language),
+    language: language.data,
     name: source.name,
     provenance: { catalogUrl, packageName: source.packageName },
     version: source.version,
