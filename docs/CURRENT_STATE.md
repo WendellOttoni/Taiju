@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-009 — Source runtime investigation.
+Last completed setup step: TASK-010 — Source runtime foundation.
 
 ## Implemented
 
@@ -45,10 +45,11 @@ Last completed setup step: TASK-009 — Source runtime investigation.
 - Project Nox protobuf/gzip index decoder with normalized extension/source catalog models and deterministic fixtures.
 - In-memory source registry with stable IDs, language normalization/prioritization, provenance and enablement state.
 - Runtime investigation completed: Project Nox extensions are JVM/Android artifacts; direct Bun execution was rejected and an isolated JVM worker was selected for the proof of concept.
+- JVM runtime IPC boundary implemented with explicit operations, response validation, timeout and process lifecycle isolation.
 
 ## Not implemented yet
 
-- Project Nox source runtime and API integration.
+- Real extension worker, source adapter and API integration.
 
 ## Current phase
 
@@ -56,7 +57,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-010 — Source runtime foundation`
+`TASK-011 — First real extension execution`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
