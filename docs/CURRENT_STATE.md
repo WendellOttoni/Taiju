@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-005 — Reading source capability contracts.
+Last completed setup step: TASK-006 — Project Nox catalog client.
 
 ## Implemented
 
@@ -41,10 +41,11 @@ Last completed setup step: TASK-005 — Reading source capability contracts.
 - User-scoped reading history records for manga, chapter, page and last update, with an indexed upsert model.
 - Authenticated progress-sync and reading-history endpoints for resuming on another session or device.
 - Source-neutral contracts for reading capabilities, language, provenance and external source identity; the initial rollout prioritizes `pt-BR` and `en`.
+- Isolated Project Nox `index.pb` catalog client with timeout, cancellation, size bounds and deterministic fetch injection.
 
 ## Not implemented yet
 
-- Project Nox catalog client and source runtime.
+- Project Nox index decoder and source runtime.
 
 ## Current phase
 
@@ -52,7 +53,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-006 — Project Nox catalog client`
+`TASK-007 — Project Nox index decoder`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

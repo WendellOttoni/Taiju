@@ -78,6 +78,13 @@
         "@types/bun": "^1.4.2",
       },
     },
+    "packages/sources": {
+      "name": "@taiju/sources",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.2",
+      },
+    },
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
@@ -269,6 +276,8 @@
     "@taiju/database": ["@taiju/database@workspace:packages/database"],
 
     "@taiju/providers": ["@taiju/providers@workspace:packages/providers"],
+
+    "@taiju/sources": ["@taiju/sources@workspace:packages/sources"],
 
     "@taiju/web": ["@taiju/web@workspace:apps/web"],
 
