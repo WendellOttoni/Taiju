@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-026 — Paged reader.
+Last completed setup step: TASK-027 — Reader preferences.
 
 ## Implemented
 
@@ -31,22 +31,22 @@ Last completed setup step: TASK-026 — Paged reader.
 - Reader route and normalized chapter-page endpoint.
 - Vertical reader with lazy-loaded pages, per-page failure feedback, chapter navigation and local progress capture.
 - Optional page-by-page reader with keyboard/button navigation and adjacent-page preloading.
+- Reader settings persisted locally for mode, reading direction, image fit and UI visibility.
 
 ## Not implemented yet
 
 - PostgreSQL/Drizzle setup;
 - authentication;
-- paged reader and reader preferences;
 - user library/progress;
 - anime features.
 
 ## Current phase
 
-MangaDex integration / vertical reader complete.
+MangaDex integration / reader complete.
 
 ## Next task
 
-`TASK-027 — Reader preferences`
+`TASK-030 — PostgreSQL + Drizzle foundation`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

@@ -12,6 +12,37 @@ import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const debounceMs = 350;
+const readerPreferencesKey = "taiju:reader-preferences";
+
+type ReaderPreferences = {
+  imageFit: "contain" | "width";
+  mode: "vertical" | "paged";
+  readingDirection: "ltr" | "rtl";
+  uiVisible: boolean;
+};
+
+const defaultReaderPreferences: ReaderPreferences = {
+  imageFit: "contain",
+  mode: "vertical",
+  readingDirection: "ltr",
+  uiVisible: true,
+};
+
+function loadReaderPreferences(): ReaderPreferences {
+  try {
+    const value = JSON.parse(
+      localStorage.getItem(readerPreferencesKey) ?? "{}",
+    ) as Partial<ReaderPreferences>;
+    return {
+      imageFit: value.imageFit === "width" ? "width" : "contain",
+      mode: value.mode === "paged" ? "paged" : "vertical",
+      readingDirection: value.readingDirection === "rtl" ? "rtl" : "ltr",
+      uiVisible: value.uiVisible !== false,
+    };
+  } catch {
+    return defaultReaderPreferences;
+  }
+}
 
 export function App() {
   const readerMatch = window.location.pathname.match(
@@ -298,9 +329,12 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [failedPages, setFailedPages] = useState<Set<number>>(() => new Set());
   const [siblings, setSiblings] = useState<ChapterSummary[]>([]);
-  const [mode, setMode] = useState<"vertical" | "paged">("vertical");
+  const [preferences, setPreferences] = useState<ReaderPreferences>(
+    loadReaderPreferences,
+  );
   const [pageIndex, setPageIndex] = useState(0);
   const mangaId = new URLSearchParams(window.location.search).get("manga");
+  const { imageFit, mode, readingDirection, uiVisible } = preferences;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -359,16 +393,25 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
     if (chapter === null || mode !== "paged") return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "ArrowLeft")
-        setPageIndex((current) => Math.max(0, current - 1));
-      if (event.key === "ArrowRight")
+      const movesForward =
+        (event.key === "ArrowRight" && readingDirection === "ltr") ||
+        (event.key === "ArrowLeft" && readingDirection === "rtl");
+      const movesBackward =
+        (event.key === "ArrowLeft" && readingDirection === "ltr") ||
+        (event.key === "ArrowRight" && readingDirection === "rtl");
+      if (movesBackward) setPageIndex((current) => Math.max(0, current - 1));
+      if (movesForward)
         setPageIndex((current) =>
           Math.min(chapter.pageUrls.length - 1, current + 1),
         );
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [chapter, mode]);
+  }, [chapter, mode, readingDirection]);
+
+  useEffect(() => {
+    localStorage.setItem(readerPreferencesKey, JSON.stringify(preferences));
+  }, [preferences]);
 
   if (error)
     return (
@@ -376,27 +419,75 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
     );
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-50">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur">
-        <a href="/" className="text-amber-400">
-          ← Voltar
-        </a>
-        <div className="flex items-center gap-2 text-sm">
-          <button
-            type="button"
-            className={`rounded px-3 py-1 ${mode === "vertical" ? "bg-amber-400 text-zinc-950" : "bg-zinc-800 text-zinc-300"}`}
-            onClick={() => setMode("vertical")}
-          >
-            Vertical
-          </button>
-          <button
-            type="button"
-            className={`rounded px-3 py-1 ${mode === "paged" ? "bg-amber-400 text-zinc-950" : "bg-zinc-800 text-zinc-300"}`}
-            onClick={() => setMode("paged")}
-          >
-            Paginado
-          </button>
-        </div>
-      </header>
+      {uiVisible && (
+        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur">
+          <a href="/" className="text-amber-400">
+            ← Voltar
+          </a>
+          <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
+            <ReaderPreferenceButton
+              active={mode === "vertical"}
+              onClick={() =>
+                setPreferences((current) => ({ ...current, mode: "vertical" }))
+              }
+            >
+              Vertical
+            </ReaderPreferenceButton>
+            <ReaderPreferenceButton
+              active={mode === "paged"}
+              onClick={() =>
+                setPreferences((current) => ({ ...current, mode: "paged" }))
+              }
+            >
+              Paginado
+            </ReaderPreferenceButton>
+            <ReaderPreferenceButton
+              active={readingDirection === "rtl"}
+              onClick={() =>
+                setPreferences((current) => ({
+                  ...current,
+                  readingDirection:
+                    current.readingDirection === "ltr" ? "rtl" : "ltr",
+                }))
+              }
+            >
+              {readingDirection === "ltr" ? "LTR" : "RTL"}
+            </ReaderPreferenceButton>
+            <ReaderPreferenceButton
+              active={imageFit === "width"}
+              onClick={() =>
+                setPreferences((current) => ({
+                  ...current,
+                  imageFit:
+                    current.imageFit === "contain" ? "width" : "contain",
+                }))
+              }
+            >
+              {imageFit === "contain" ? "Ajustar" : "Largura"}
+            </ReaderPreferenceButton>
+            <button
+              type="button"
+              className="rounded bg-zinc-800 px-3 py-1 text-zinc-300"
+              onClick={() =>
+                setPreferences((current) => ({ ...current, uiVisible: false }))
+              }
+            >
+              Ocultar UI
+            </button>
+          </div>
+        </header>
+      )}
+      {!uiVisible && (
+        <button
+          type="button"
+          className="fixed right-4 top-4 z-20 rounded bg-zinc-800 px-3 py-2 text-sm"
+          onClick={() =>
+            setPreferences((current) => ({ ...current, uiVisible: true }))
+          }
+        >
+          Mostrar UI
+        </button>
+      )}
       {chapter === null ? (
         <p className="p-8 text-zinc-300" role="status">
           Preparando páginas…
@@ -418,7 +509,11 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
                   src={pageUrl}
                   alt={`Página ${index + 1}`}
                   loading="lazy"
-                  className="block w-full"
+                  className={
+                    imageFit === "width"
+                      ? "block w-full"
+                      : "mx-auto block max-w-full"
+                  }
                   onLoad={() =>
                     localStorage.setItem(
                       `taiju:reader:${id}`,
@@ -454,6 +549,7 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
                   Math.min(chapter.pageUrls.length - 1, current + 1),
                 )
               }
+              imageFit={imageFit}
             />
           )}
           <nav className="flex justify-between gap-4 p-6">
@@ -484,6 +580,26 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   );
 }
 
+function ReaderPreferenceButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`rounded px-3 py-1 ${active ? "bg-amber-400 text-zinc-950" : "bg-zinc-800 text-zinc-300"}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
 function PagedPage({
   pageUrl,
   pageIndex,
@@ -493,6 +609,7 @@ function PagedPage({
   onError,
   onPrevious,
   onNext,
+  imageFit,
 }: {
   pageUrl: string;
   pageIndex: number;
@@ -502,6 +619,7 @@ function PagedPage({
   onError: () => void;
   onPrevious: () => void;
   onNext: () => void;
+  imageFit: ReaderPreferences["imageFit"];
 }) {
   return (
     <div className="min-h-[calc(100vh-73px)] bg-zinc-900 p-4">
@@ -517,7 +635,11 @@ function PagedPage({
           key={pageUrl}
           src={pageUrl}
           alt={`Página ${pageIndex + 1}`}
-          className="mx-auto max-h-[calc(100vh-150px)] max-w-full object-contain"
+          className={
+            imageFit === "width"
+              ? "mx-auto w-full"
+              : "mx-auto max-h-[calc(100vh-150px)] max-w-full object-contain"
+          }
           onLoad={onLoad}
           onError={onError}
         />
