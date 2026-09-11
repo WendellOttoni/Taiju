@@ -1,34 +1,32 @@
 # Taiju — Development Plan
 
-This document defines **how the project must progress**, not just what features are planned.
+This document defines how Taiju must progress technically.
 
-The goal is to keep development incremental, reviewable, and safe for AI-assisted implementation with Codex/Claude or other coding agents.
+Taiju is **multi-source by design**. No reading source is a privileged first-class path in product code. The initial reading ecosystem is the Project Nox catalog, and the goal is to support every source that is technically compatible with the Taiju runtime.
 
 ---
 
 ## 1. Development strategy
 
-Taiju must be built through **small, technical, independently verifiable tasks**.
+Taiju must be implemented through small, independently verifiable tasks.
 
 Each task must:
 
-- have a single primary objective;
-- define its allowed scope;
-- define files/packages it may create or change;
+- have one primary objective;
+- define allowed scope;
 - define explicit acceptance criteria;
 - include validation steps;
-- leave the repository in a working state;
+- leave the repository runnable;
 - update `docs/CURRENT_STATE.md` when completed;
-- never automatically continue into the next task.
+- stop without automatically starting the next task.
 
-The agent must prefer the simplest implementation that satisfies the current task. Do not introduce abstractions for hypothetical future requirements.
+Do not introduce abstractions for hypothetical requirements, except for the source boundary itself, which is a core product requirement from day one.
 
 ---
 
-## 2. Project stack
+## 2. Stack
 
 ### Frontend
-
 - React
 - Vite
 - TypeScript
@@ -36,43 +34,33 @@ The agent must prefer the simplest implementation that satisfies the current tas
 - shadcn/ui
 
 ### Backend
-
 - Bun
 - Hono
 - TypeScript
 - Zod
 
 ### Data
-
 - PostgreSQL
 - Drizzle ORM
 
-### Planned infrastructure
+### Reading source ecosystem
+- Taiju Source Engine
+- Project Nox catalog via `index.pb`
+- source registry
+- source runtime / compatibility layer
 
-- Redis for cache/rate limiting when justified
-- CI with GitHub Actions
-- shared runtime contracts/OpenAPI where useful
-
-### Reading sources and external providers
-
-Primary reading-source strategy:
-
-- Project Nox — source-extension catalog via `index.pb`; target is support for every technically compatible published source
-- MangaDex — native reading/catalog provider and first reference implementation
-
-Metadata/anime providers:
-
-- AniList — metadata and tracking-oriented data
-- Jikan — complementary/fallback metadata
-- trace.moe — anime scene identification
-
-Project Nox modern catalog:
+Project Nox catalog:
 
 ```text
 https://github.com/Awerkori/extensoes/raw/repo/index.pb
 ```
 
-Providers and sources must remain isolated from Taiju application contracts so the product can add, update, disable or replace them independently.
+### Metadata/anime providers
+- AniList
+- Jikan
+- trace.moe
+
+Redis may be added later only when measured caching/rate-limit needs justify it.
 
 ---
 
@@ -81,63 +69,72 @@ Providers and sources must remain isolated from Taiju application contracts so t
 ```text
 Taiju/
 ├── apps/
-│   ├── web/                 # React/Vite client
-│   └── api/                 # Hono/Bun backend
-│
+│   ├── web/
+│   └── api/
 ├── packages/
-│   ├── contracts/           # Shared public types/schemas
-│   ├── providers/           # Native external API integrations
-│   ├── sources/             # Project Nox/source-extension registry + runtime
-│   ├── database/            # Drizzle schema/repositories
-│   └── config/              # Shared configuration/tooling
-│
+│   ├── contracts/
+│   ├── sources/
+│   ├── providers/
+│   ├── database/
+│   └── config/
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── CURRENT_STATE.md
 │   ├── ROADMAP.md
 │   ├── DEVELOPMENT_PLAN.md
 │   └── tasks/
-│
 ├── AGENTS.md
 ├── README.md
 └── package.json
 ```
 
+`packages/sources` is the central reading integration layer.
+
 ---
 
-## 4. Execution flow for every task
+## 4. Rules for source architecture
 
-### Step 1 — Read context
+1. Product/UI code must never hardcode a scan/source implementation.
+2. All reading sources must be represented through Taiju-owned contracts.
+3. Project Nox catalog structures must remain internal to `packages/sources`.
+4. Search, details, chapters and pages are capabilities, not source-specific features.
+5. A dedicated/native adapter, if ever needed, must implement the same source contract as dynamic sources.
+6. One broken source must not break unrelated sources.
+7. Source provenance must remain explicit in IDs/results.
+8. Source runtime details must not leak into API/public contracts.
+9. Cross-source matching must not rely only on title text.
+10. No source becomes the default merely because it was implemented first.
 
-Before changing code, the agent must read:
+---
+
+## 5. Task execution flow
+
+Before each task the agent must read:
 
 1. `README.md`
 2. `AGENTS.md`
 3. `docs/ARCHITECTURE.md`
 4. `docs/CURRENT_STATE.md`
 5. `docs/DEVELOPMENT_PLAN.md`
-6. the requested `docs/tasks/TASK-XXX-*.md`
+6. requested `docs/tasks/TASK-XXX-*.md`
 
-### Step 2 — Inspect current implementation
+Then:
 
-The agent must inspect only the files relevant to the requested task and existing dependencies.
+```text
+inspect relevant code
+   ↓
+implement one task only
+   ↓
+run validations
+   ↓
+fix regressions introduced by the task
+   ↓
+update CURRENT_STATE.md
+   ↓
+report and stop
+```
 
-It must not assume a file or feature exists just because it appears in the roadmap.
-
-### Step 3 — Implement only the task
-
-Do not:
-
-- implement future tasks;
-- refactor unrelated code;
-- rename unrelated modules;
-- introduce new infrastructure without need;
-- hardcode scan/source implementations into UI or domain code;
-- replace working architecture unless required by the task.
-
-### Step 4 — Validate
-
-At minimum, when applicable:
+Normal validation, when applicable:
 
 ```bash
 bun install
@@ -146,495 +143,318 @@ bun run test
 bun run build
 ```
 
-For backend tasks, also validate the API locally.
-
-For frontend tasks, validate rendering and browser console behavior.
-
-For Project Nox/source tasks, validate against deterministic catalog/source fixtures whenever possible instead of relying only on live sites.
-
-### Step 5 — Update state
-
-Update `docs/CURRENT_STATE.md` with:
-
-- last completed task;
-- features now available;
-- known issues;
-- technical decisions made;
-- next planned task.
-
-### Step 6 — Stop
-
-The agent must report completion and stop.
-
-It must **not start the next task** unless explicitly instructed.
+Live third-party sites must not be required for normal CI; use deterministic fixtures/mocks for source engine tests.
 
 ---
 
-# 5. Development phases
+# 6. Phases and tasks
 
 ## Phase 0 — Foundation
 
-Purpose: create a healthy monorepo and development baseline.
-
 ### TASK-001 — Bootstrap monorepo
 
-Create the Bun workspace, React/Vite frontend, Hono API, shared packages and common tooling.
-
-The target workspace must reserve a `packages/sources` package for the source engine.
-
-Expected outcome:
+Create Bun workspace, React/Vite app, Hono API and packages:
 
 ```text
-bun install
-bun run dev
-bun run typecheck
-bun run build
+contracts
+sources
+providers
+database
+config
 ```
 
-work successfully.
+No external source logic yet.
 
 ### TASK-002 — Code quality baseline
 
-Configure:
-
-- formatting;
-- linting;
-- consistent TypeScript settings;
-- workspace scripts;
-- basic test runner;
-- import conventions.
+Configure linting, formatting, TypeScript consistency, tests and workspace scripts.
 
 ### TASK-003 — API foundation
 
-Create:
-
-- Hono application bootstrap;
-- `/health` endpoint;
-- environment validation with Zod;
-- consistent API error response format;
-- request logging baseline.
-
-No external provider/source execution yet.
+Create Hono bootstrap, `/health`, environment validation, API error shape and request logging baseline.
 
 ### TASK-004 — Shared contracts foundation
 
-Establish `packages/contracts` conventions and common primitives for pagination, errors, external provenance and source identifiers.
+Create common Taiju primitives for:
+- errors;
+- pagination;
+- source identity;
+- provenance;
+- capability metadata.
 
 ---
 
-## Phase 1 — Source engine and Project Nox
+## Phase 1 — Project Nox catalog and source engine
 
-Purpose: make Taiju source-driven before product features become coupled to MangaDex or any individual scan.
+### TASK-005 — Reading source capability contracts
 
-### TASK-005 — Reading source contracts
-
-Define the first normalized Taiju source capability contracts.
-
-Conceptually, the source layer must be able to provide:
-
+Define normalized contracts for:
 - source metadata;
-- manga search;
+- search;
 - manga details;
 - chapter listing;
 - page resolution.
 
-Do not expose Project Nox or any scan-specific DTO directly outside `packages/sources`.
-
 ### TASK-006 — Project Nox catalog client
 
-Implement download/access to:
-
-```text
-https://github.com/Awerkori/extensoes/raw/repo/index.pb
-```
-
-Responsibilities:
-
-- fetch catalog bytes;
-- timeout/error handling;
-- optional local development fixture;
-- retain catalog provenance;
-- no source execution yet.
+Fetch the raw `index.pb` bytes with timeout/error handling and deterministic local fixture support.
 
 ### TASK-007 — Project Nox index decoder
 
-Decode/parse the modern `index.pb` catalog into Taiju-owned source descriptors.
+Decode the catalog into Taiju-owned source descriptors.
 
-Extract all available metadata required to enumerate and version sources.
-
-Acceptance direction:
-
-- every catalog entry that can be decoded is represented;
-- parser tests use a deterministic fixture;
-- malformed entries fail in isolation when possible.
+Acceptance goals:
+- enumerate every decodable catalog entry;
+- preserve source/package/version/language/provenance metadata;
+- isolate malformed entries when possible;
+- parser tests use fixtures.
 
 ### TASK-008 — Source registry
 
-Create a registry capable of:
+Create registry functionality for:
+- list all sources;
+- filter by language;
+- resolve stable source identity;
+- retain version/provenance;
+- compatibility status;
+- enabled/disabled state representation.
 
-- listing all Project Nox sources;
-- filtering by language/capability;
-- resolving a source by stable identity;
-- tracking source version/provenance;
-- representing compatibility/availability status.
+### TASK-009 — Source runtime investigation
 
-Expose a Taiju API endpoint for source enumeration only after the internal registry is stable.
+Before implementation, inspect the Project Nox extension format and upstream source project to determine:
+- compiled artifact/runtime type;
+- APIs expected by extensions;
+- whether direct Bun execution is possible;
+- whether a compatibility process/service/runtime is required;
+- update/signature model.
 
-### TASK-009 — Source runtime / compatibility layer
+This task produces a documented technical decision and proof-of-concept plan. Do not guess the runtime.
 
-Determine and implement the runtime/adaptation strategy required to execute compatible Project Nox extensions.
+### TASK-010 — Source runtime foundation
 
-This task must begin with inspection of the Project Nox extension format and runtime expectations before implementation.
+Implement the runtime/compatibility boundary selected by TASK-009.
 
-Goals:
+The rest of Taiju must see only normalized source capabilities.
 
-- support all technically compatible catalog sources;
-- avoid manually coding one adapter per scan when the extension format already defines the behavior;
-- isolate failures per source;
-- expose normalized `ReadingSource` capabilities;
-- support extension/source version updates.
+### TASK-011 — First real extension execution
 
-If Project Nox extensions target a runtime that cannot execute directly under Bun, build an explicit compatibility/adaptation boundary rather than leaking that runtime into the rest of Taiju.
+Execute one real Project Nox source end-to-end solely as a **runtime validation fixture**.
+
+This source is not a preferred/default source; it is just the first compatibility test.
+
+Validate:
+- source loads;
+- search works;
+- details work;
+- chapters work;
+- page resolution works when supported.
+
+### TASK-012 — Catalog-wide compatibility scanner
+
+Evaluate all Project Nox catalog entries against the Taiju runtime and classify:
+- compatible;
+- incompatible;
+- broken/upstream unavailable;
+- update required;
+- unsupported runtime feature.
+
+Do not manually maintain a whitelist unless technically unavoidable and documented.
 
 ---
 
-## Phase 2 — MangaDex native reference implementation
+## Phase 2 — Multi-source API and discovery
 
-Purpose: validate Taiju's contracts end-to-end with a stable native integration while the dynamic source runtime matures.
+### TASK-013 — Sources API
 
-### TASK-010 — MangaDex HTTP client
+Expose source enumeration through Taiju API.
 
-Implement the low-level MangaDex client inside `packages/providers`.
-
-Responsibilities:
-
-- base URL configuration;
-- request helper;
-- timeout;
-- cancellation where supported;
-- HTTP errors;
-- rate-limit metadata;
-- external DTOs isolated from Taiju contracts.
-
-### TASK-011 — Manga search contract/mapping
-
-Map MangaDex search output into the same normalized Taiju contracts used by dynamic sources.
-
-Do not expose MangaDex DTOs to the frontend.
-
-### TASK-012 — Search API endpoint
-
-Add a normalized search endpoint capable of receiving a source/provider selection.
-
-Directional shape:
+Directional example:
 
 ```http
-GET /api/manga/search?q=...&source=...
+GET /api/sources
 ```
 
-The binding contract is defined by the task implementation, not by this example.
+### TASK-014 — Single-source search API
 
-### TASK-013 — Search UI
+Search any selected compatible source using the same endpoint/contract.
 
-Create the first real Taiju screen:
+### TASK-015 — Multi-source search orchestration
 
-- search bar;
-- source selection;
-- debounce;
-- loading state;
-- error state;
-- result cards;
-- covers;
-- responsive grid.
+Allow searching all enabled/selected sources with bounded concurrency, timeouts and isolated failures.
 
-### TASK-014 — Manga details API
+### TASK-016 — Search result normalization
 
-Expose normalized details through the selected source/provider.
+Return source-neutral manga results with explicit provenance.
 
-### TASK-015 — Manga details page
+### TASK-017 — Search UI
 
-Create the public details route and UI with source provenance visible when useful.
+Create:
+- search input;
+- source selector;
+- language filter;
+- all-sources mode;
+- loading/error states;
+- grouped or normalized results;
+- source provenance.
 
----
+### TASK-018 — Manga details API
 
-## Phase 3 — Multi-source chapters and reader
+Expose details through any selected source.
 
-Purpose: make Taiju an actual multi-source reader.
+### TASK-019 — Manga details UI
 
-### TASK-020 — Chapter feed capability
-
-Retrieve chapters from the selected source.
-
-Support normalized fields such as:
-
-- language;
-- pagination where relevant;
-- chapter number;
-- volume;
-- publication timestamp;
-- scanlation/source metadata where available.
-
-### TASK-021 — Chapter API
-
-Expose normalized chapter lists through Taiju API without leaking source runtime internals.
-
-### TASK-022 — Chapter list UI
-
-Add chapter browsing and source switching where multiple sources are available.
-
-### TASK-023 — Page resolution abstraction
-
-Define source-neutral page resolution.
-
-For MangaDex, use MangaDex@Home behind its adapter. Dynamic Project Nox sources resolve pages through the source runtime.
-
-### TASK-024 — Reader foundation
-
-Create reader route and common reader state.
-
-### TASK-025 — Vertical reader
-
-Implement:
-
-- continuous vertical reading;
-- lazy image loading;
-- image error recovery;
-- chapter progress;
-- next/previous chapter controls.
-
-### TASK-026 — Paged reader
-
-Implement optional page-by-page mode:
-
-- keyboard navigation;
-- previous/next buttons;
-- preloading neighboring pages.
-
-### TASK-027 — Reader preferences
-
-Persist locally:
-
-- vertical/paged mode;
-- reading direction;
-- image fit;
-- reader UI visibility;
-- preferred sources/languages where useful.
+Show metadata plus source availability/provenance.
 
 ---
 
-## Phase 4 — Database and user state
+## Phase 3 — Chapters and reader
 
-Purpose: move from stateless reader to personal product.
+### TASK-020 — Multi-source chapter API
 
-### TASK-030 — PostgreSQL + Drizzle foundation
+Retrieve normalized chapters from any source.
 
-Add database package and migration workflow.
+### TASK-021 — Chapter list UI
 
-### TASK-031 — User domain model
+Support source/language selection and chapter browsing.
 
-Define minimal user and profile models.
+### TASK-022 — Source-neutral page resolution
 
+Resolve reader pages through the selected source runtime.
+
+### TASK-023 — Reader foundation
+
+Create common reader state independent of source implementation.
+
+### TASK-024 — Vertical reader
+
+Implement continuous vertical reading and lazy image loading.
+
+### TASK-025 — Paged reader
+
+Implement page-by-page mode, keyboard navigation and neighboring-page preload.
+
+### TASK-026 — Reader preferences
+
+Persist local reading mode, direction, fit and preferred languages/sources.
+
+### TASK-027 — Source switch / fallback UX
+
+Allow changing source when multiple sources expose equivalent content without hiding provenance.
+
+---
+
+## Phase 4 — Persistence and accounts
+
+### TASK-030 — PostgreSQL + Drizzle
+### TASK-031 — User model
 ### TASK-032 — Authentication
-
-Select and implement authentication only at this point.
-
 ### TASK-033 — Library/favorites
-
-Allow users to save titles with external/source references.
-
 ### TASK-034 — Reading history
-
-Store:
-
-- title;
-- source;
-- chapter;
-- page/progress;
-- timestamp.
-
 ### TASK-035 — Reading progress synchronization
+### TASK-036 — Source/language preferences
 
-Resume reading across sessions/devices.
-
-### TASK-036 — Source preferences
-
-Persist preferred languages, enabled sources and optional per-title source choice.
+Persist source-aware references rather than assuming one canonical external ID.
 
 ---
 
-## Phase 5 — Unified metadata/catalog
-
-Purpose: enrich titles without coupling reading availability to metadata providers.
+## Phase 5 — Metadata enrichment
 
 ### TASK-040 — AniList client
+### TASK-041 — Cross-source/media identity strategy
+### TASK-042 — Rich metadata enrichment
+### TASK-043 — Jikan fallback/complement
+### TASK-044 — Capability/provider resolution layer
 
-Create isolated AniList GraphQL provider.
-
-### TASK-041 — Unified media identifiers
-
-Create mapping strategy between Taiju, MangaDex, Project Nox source entries and AniList IDs.
-
-Do not assume titles alone are safe identifiers.
-
-### TASK-042 — Rich metadata
-
-Use AniList for complementary information where appropriate.
-
-### TASK-043 — Jikan fallback provider
-
-Use only when useful for data missing elsewhere.
-
-### TASK-044 — Provider/source resolution layer
-
-The rest of Taiju should request capabilities, not hardcode a particular third-party provider or scan.
+Metadata providers enrich titles but do not become reading sources by default.
 
 ---
 
 ## Phase 6 — Anime companion
 
 ### TASK-050 — Anime catalog
-
-Expose anime search/details through AniList/Jikan.
-
 ### TASK-051 — Anime tracking
-
-Users can track planning/watching/completed/paused/dropped state.
-
-### TASK-052 — Streaming links metadata
-
-Display provider links when supplied by metadata services.
-
+### TASK-052 — Streaming-link metadata
 ### TASK-053 — trace.moe integration
-
-Identify anime scenes from screenshots.
-
 ### TASK-054 — Scene finder UI
-
-Build the corresponding user experience.
 
 ---
 
 ## Phase 7 — Discovery
 
-### TASK-060 — Trending pages
+### TASK-060 — Trending
 ### TASK-061 — Seasonal anime
 ### TASK-062 — Recommendations
 ### TASK-063 — Advanced filtering
-### TASK-064 — Search history and recent titles
+### TASK-064 — Search history/recent titles
 
 ---
 
-## Phase 8 — Performance and resilience
+## Phase 8 — Reliability and scale
 
-### TASK-070 — Cache strategy
-
-Measure expensive/high-volume provider and source catalog operations first.
-
-### TASK-071 — Redis
-
-Add only when required by measured needs.
-
-### TASK-072 — Provider/source rate-limit protection
-
-Implement per-upstream policies.
-
-### TASK-073 — Source catalog update strategy
-
-Handle Project Nox catalog refresh, extension version changes, stale descriptors and compatibility status.
-
-### TASK-074 — Resilience
-
-Add carefully scoped retries/backoff only for safe requests and isolate broken sources.
-
-### TASK-075 — Observability
-
-Add structured logs and operational metrics including source-level failure diagnostics.
+### TASK-070 — Source catalog refresh strategy
+### TASK-071 — Source update/version handling
+### TASK-072 — Cache strategy
+### TASK-073 — Redis if justified
+### TASK-074 — Rate-limit/concurrency protection
+### TASK-075 — Source isolation and resilience
+### TASK-076 — Observability
 
 ---
 
 ## Phase 9 — Delivery
 
 ### TASK-080 — CI
-
-GitHub Actions should run install, lint, typecheck, tests and production build.
-
-### TASK-081 — Container/deployment decision
-
-Choose deployment based on actual runtime needs, especially the final Project Nox compatibility/runtime strategy.
-
+### TASK-081 — Runtime/deployment decision
 ### TASK-082 — Production environments
-
-Separate development/staging/production configuration.
-
 ### TASK-083 — taiju.app deployment
 
-Configure the final public deployment and domain when infrastructure is ready.
+The deployment decision must account for whatever runtime is required to execute Project Nox extensions.
 
 ---
 
-# 6. Task numbering policy
+# 7. Milestones
 
-```text
-000–004  foundation
-005–009  source engine / Project Nox
-010–019  MangaDex/reference discovery
-020–029  reader
-030–039  users/database
-040–049  metadata/multi-provider
-050–059  anime
-060–069  discovery
-070–079  performance/infrastructure
-080–089  delivery
-090–099  reserved
-```
+## Milestone A — Catalog
 
-If a task grows too large, split it into the next available small task rather than asking an agent to complete a broad feature in one pass.
+Taiju downloads and decodes `index.pb` and lists all Project Nox sources.
+
+## Milestone B — Runtime
+
+Taiju can execute Project Nox extensions through one normalized source contract.
+
+## Milestone C — All-source discovery
+
+A user can search one source or all enabled compatible sources through the same Taiju API/UI.
+
+## Milestone D — Reader
+
+A user can choose a result/source, open chapters and read content through the common reader.
+
+## Milestone E — Personal product
+
+Favorites, history, progress and preferences persist across sessions.
 
 ---
 
-# 7. Definition of Done
+# 8. Definition of Done
 
-A task is only complete when all applicable conditions are true:
+A task is complete only when applicable conditions pass:
 
 - requested behavior exists;
 - typecheck passes;
 - tests pass;
 - production build passes;
-- no new known console/runtime errors;
-- code outside scope was not unnecessarily modified;
-- external DTO/runtime details do not leak across provider/source boundaries;
-- one broken source cannot crash unrelated source operations where isolation applies;
-- documentation reflects meaningful architectural changes;
+- no new known runtime/console errors;
+- scope was respected;
+- source/runtime details do not leak across boundaries;
+- source failures are isolated where applicable;
+- docs reflect architectural decisions;
 - `CURRENT_STATE.md` is updated;
-- agent reports files created/changed and validation performed.
+- files changed and validation performed are reported.
 
 ---
 
-# 8. Review workflow
-
-```text
-1. Choose exactly one TASK
-        ↓
-2. Codex implements it
-        ↓
-3. Human/ChatGPT reviews diff and architecture
-        ↓
-4. Fix only issues found in that task
-        ↓
-5. Validate
-        ↓
-6. Mark task complete in CURRENT_STATE
-        ↓
-7. Prepare next TASK
-```
-
-Do not feed the entire roadmap to an agent as an instruction to implement everything.
-
-The roadmap provides context. The task file provides authority.
-
----
-
-# 9. Standard prompt for Codex
+# 9. Standard Codex prompt
 
 ```text
 Read README.md, AGENTS.md, docs/ARCHITECTURE.md,
@@ -644,6 +464,7 @@ Execute only TASK-XXX.
 
 Respect its scope, technical constraints, acceptance criteria and validation steps.
 Do not implement future tasks and do not refactor unrelated code.
+Do not introduce source-specific behavior into product/domain/UI code.
 
 Before finishing:
 - run all applicable validations;
@@ -656,52 +477,26 @@ Stop after TASK-XXX is complete.
 
 ---
 
-# 10. Immediate next steps
-
-Current recommended order:
+# 10. Immediate order
 
 ```text
 TASK-001  Bootstrap monorepo
-   ↓
 TASK-002  Code quality baseline
-   ↓
 TASK-003  API foundation
-   ↓
 TASK-004  Shared contracts foundation
-   ↓
 TASK-005  Reading source contracts
-   ↓
 TASK-006  Project Nox catalog client
-   ↓
 TASK-007  Project Nox index decoder
-   ↓
 TASK-008  Source registry
-   ↓
-TASK-009  Source runtime / compatibility layer
-   ↓
-TASK-010  MangaDex native reference client
-   ↓
-TASK-011  MangaDex normalized mapping
-   ↓
-TASK-012  Multi-source search endpoint
-   ↓
-TASK-013  Search UI with source selection
+TASK-009  Runtime investigation
+TASK-010  Runtime foundation
+TASK-011  First extension runtime validation
+TASK-012  Catalog-wide compatibility scanner
+TASK-013  Sources API
+TASK-014  Single-source search
+TASK-015  Multi-source search
+TASK-016  Search normalization
+TASK-017  Search UI
 ```
 
-### Milestone A — Source catalog
-
-Complete when Taiju can load the Project Nox `index.pb`, enumerate all decoded sources and expose compatibility/availability information.
-
-### Milestone B — First dynamic source
-
-Complete when at least one Project Nox extension can execute through Taiju's source runtime and perform normalized search/details/chapter/page operations.
-
-### Milestone C — Multi-source reader
-
-Complete when the user can choose among available sources, open a title, select a chapter and read it inside Taiju through the common source interface.
-
----
-
-## Guiding principle
-
-> Build one small verified capability at a time. Treat Project Nox as a dynamic source registry, not as product/domain code, and keep every source behind the same Taiju-owned contracts.
+> Build the engine for all sources first; product features consume the engine afterward.
