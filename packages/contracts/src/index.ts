@@ -25,3 +25,17 @@ export {
 } from "./manga";
 export type { ReadingProgress } from "./reading";
 export { readingHistoryResponseSchema, readingProgressSchema } from "./reading";
+export type {
+  SourceCapability,
+  SourceLanguage,
+  SourceProvenance,
+  SourceRef,
+  SourceSummary,
+} from "./source";
+export {
+  sourceCapabilitySchema,
+  sourceLanguageSchema,
+  sourceProvenanceSchema,
+  sourceRefSchema,
+  sourceSummarySchema,
+} from "./source";

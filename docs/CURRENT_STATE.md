@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-035 — Reading progress synchronization.
+Last completed setup step: TASK-005 — Reading source capability contracts.
 
 ## Implemented
 
@@ -40,18 +40,19 @@ Last completed setup step: TASK-035 — Reading progress synchronization.
 - Authenticated library endpoints and persisted MangaDex favorites with user-scoped uniqueness.
 - User-scoped reading history records for manga, chapter, page and last update, with an indexed upsert model.
 - Authenticated progress-sync and reading-history endpoints for resuming on another session or device.
+- Source-neutral contracts for reading capabilities, language, provenance and external source identity; the initial rollout prioritizes `pt-BR` and `en`.
 
 ## Not implemented yet
 
-- browser sign-in UI and reader-to-sync wiring.
+- Project Nox catalog client and source runtime.
 
 ## Current phase
 
-Reader and personal-state backend milestone complete.
+Source-engine migration started; existing MangaDex flow remains the legacy adapter until subsequent source tasks.
 
 ## Next task
 
-No next task is scheduled in the current scope.
+`TASK-006 — Project Nox catalog client`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
