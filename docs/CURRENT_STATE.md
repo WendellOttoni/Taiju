@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-010 — MangaDex HTTP client.
+Last completed setup step: TASK-011 — Manga search contract.
 
 ## Implemented
 
@@ -19,6 +19,7 @@ Last completed setup step: TASK-010 — MangaDex HTTP client.
 - Biome formatting, linting and import-organization baseline.
 - API environment validation, structured request logging and consistent JSON errors.
 - Isolated MangaDex HTTP client with timeout, cancellation and rate-limit error translation.
+- Shared Zod contracts for normalized manga search requests, summaries and paginated responses.
 
 ## Not implemented yet
 
@@ -33,11 +34,11 @@ Last completed setup step: TASK-010 — MangaDex HTTP client.
 
 ## Current phase
 
-MangaDex integration / HTTP client complete.
+MangaDex integration / search contract complete.
 
 ## Next task
 
-`TASK-011 — Normalized manga search contract`
+`TASK-012 — Manga search API endpoint`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 

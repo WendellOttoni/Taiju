@@ -45,6 +45,12 @@
     "packages/contracts": {
       "name": "@taiju/contracts",
       "version": "0.0.0",
+      "dependencies": {
+        "zod": "^4.6.2",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.2",
+      },
     },
     "packages/database": {
       "name": "@taiju/database",

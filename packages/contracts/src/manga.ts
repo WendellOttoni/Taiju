@@ -1,0 +1,38 @@
+import { z } from "zod";
+
+const mangaStatusSchema = z.enum([
+  "ongoing",
+  "completed",
+  "hiatus",
+  "cancelled",
+  "unknown",
+]);
+
+export const mangaSummarySchema = z.object({
+  provider: z.literal("mangadex"),
+  providerId: z.string().uuid(),
+  title: z.string().trim().min(1),
+  description: z.string().trim().min(1).optional(),
+  coverUrl: z.string().url().optional(),
+  status: mangaStatusSchema.optional(),
+  originalLanguage: z.string().trim().min(1).optional(),
+  tags: z.array(z.string().trim().min(1)),
+});
+
+export const mangaSearchQuerySchema = z.object({
+  query: z.string().trim().min(1).max(200),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).default(0),
+});
+
+export const mangaSearchResponseSchema = z.object({
+  items: z.array(mangaSummarySchema),
+  total: z.number().int().min(0),
+  limit: z.number().int().min(1).max(100),
+  offset: z.number().int().min(0),
+});
+
+export type MangaStatus = z.infer<typeof mangaStatusSchema>;
+export type MangaSummary = z.infer<typeof mangaSummarySchema>;
+export type MangaSearchQuery = z.infer<typeof mangaSearchQuerySchema>;
+export type MangaSearchResponse = z.infer<typeof mangaSearchResponseSchema>;
