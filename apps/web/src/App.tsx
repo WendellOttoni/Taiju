@@ -1,4 +1,6 @@
 import {
+  type ChapterSummary,
+  chapterFeedResponseSchema,
   type MangaDetails,
   type MangaSummary,
   mangaDetailsSchema,
@@ -142,6 +144,7 @@ function SearchPage() {
 
 function DetailsPage({ provider, id }: { provider: string; id: string }) {
   const [manga, setManga] = useState<MangaDetails | null>(null);
+  const [chapters, setChapters] = useState<ChapterSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -159,6 +162,29 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
             reason instanceof Error
               ? reason.message
               : "Não foi possível carregar os detalhes.",
+          );
+      }
+    })();
+    return () => controller.abort();
+  }, [id, provider]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(`/api/manga/${provider}/${id}/chapters`, {
+          signal: controller.signal,
+        });
+        if (!response.ok)
+          throw new Error("Não foi possível carregar os capítulos.");
+        setChapters(
+          chapterFeedResponseSchema.parse(await response.json()).items,
+        );
+      } catch (reason) {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível carregar os capítulos.",
           );
       }
     })();
@@ -210,6 +236,37 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
             <Detail label="Idiomas" values={manga.availableLanguages} />
             <Detail label="Tags" values={manga.tags} />
           </dl>
+          <section className="mt-10">
+            <h2 className="text-2xl font-bold">Capítulos</h2>
+            <div className="mt-4 divide-y divide-zinc-800 rounded-xl border border-zinc-800">
+              {chapters.length === 0 ? (
+                <p className="p-4 text-zinc-400">Nenhum capítulo disponível.</p>
+              ) : (
+                chapters.map((chapter) => (
+                  <div
+                    key={`${chapter.provider}:${chapter.providerId}`}
+                    className="flex items-center justify-between gap-4 p-4"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {chapter.volume && `Vol. ${chapter.volume} · `}Cap.{" "}
+                        {chapter.chapter ?? "—"}
+                        {chapter.title && ` — ${chapter.title}`}
+                      </p>
+                      {chapter.scanlationGroup && (
+                        <p className="mt-1 text-sm text-zinc-400">
+                          {chapter.scanlationGroup.name}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-sm text-zinc-500">
+                      {chapter.language.toUpperCase()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
         </div>
       </section>
     </main>

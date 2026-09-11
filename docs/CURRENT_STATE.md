@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-021 — Chapter API.
+Last completed setup step: TASK-022 — Chapter list UI.
 
 ## Implemented
 
@@ -26,6 +26,7 @@ Last completed setup step: TASK-021 — Chapter API.
 - Public manga details page linked from search results and backed by Taiju API contracts.
 - Normalized MangaDex chapter feed with language filters, pagination and scanlation groups.
 - Chapter API endpoint with validated language and pagination parameters.
+- Chapter list rendered on manga detail pages.
 
 ## Not implemented yet
 
@@ -37,11 +38,11 @@ Last completed setup step: TASK-021 — Chapter API.
 
 ## Current phase
 
-MangaDex integration / chapter API complete.
+MangaDex integration / chapter list UI complete.
 
 ## Next task
 
-`TASK-022 — Chapter list UI`
+`TASK-023 — MangaDex@Home page resolver`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
