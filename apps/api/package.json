@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@taiju/contracts": "workspace:*",
+    "@taiju/database": "workspace:*",
     "@taiju/providers": "workspace:*",
     "hono": "^4.10.4",
     "zod": "^4.6.2"

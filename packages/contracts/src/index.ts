@@ -1,3 +1,5 @@
+export type { AuthCredentials, AuthenticatedUser } from "./auth";
+export { authCredentialsSchema, authenticatedUserSchema } from "./auth";
 export type {
   ChapterFeedQuery,
   ChapterFeedResponse,

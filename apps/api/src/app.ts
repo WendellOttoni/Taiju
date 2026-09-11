@@ -1,4 +1,5 @@
 import {
+  authCredentialsSchema,
   chapterFeedQuerySchema,
   mangaSearchQuerySchema,
   readerChapterSchema,
@@ -12,14 +13,22 @@ import {
   searchManga,
 } from "@taiju/providers";
 import { Hono } from "hono";
+import {
+  AuthenticationError,
+  type AuthService,
+  bearerToken,
+  EmailAlreadyRegisteredError,
+} from "./auth";
 import { jsonError } from "./http/errors";
 
 export type ApiDependencies = {
+  auth?: AuthService;
   mangaDexClient?: Pick<MangaDexClient, "request">;
 };
 
 export function createApp(dependencies: ApiDependencies = {}) {
   const mangaDexClient = dependencies.mangaDexClient ?? new MangaDexClient();
+  const auth = dependencies.auth;
   const app = new Hono();
   app.use("*", async (context, next) => {
     const startedAt = performance.now();
@@ -36,6 +45,65 @@ export function createApp(dependencies: ApiDependencies = {}) {
   app.get("/health", (context) =>
     context.json({ status: "ok", service: "taiju-api" }),
   );
+  app.post("/api/auth/register", async (context) => {
+    if (auth === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Authentication is not configured.",
+      );
+    const parsed = authCredentialsSchema.safeParse(await context.req.json());
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid authentication credentials.",
+      );
+    return context.json(
+      await auth.register(parsed.data.email, parsed.data.password),
+      201,
+    );
+  });
+  app.post("/api/auth/login", async (context) => {
+    if (auth === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Authentication is not configured.",
+      );
+    const parsed = authCredentialsSchema.safeParse(await context.req.json());
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid authentication credentials.",
+      );
+    return context.json(
+      await auth.login(parsed.data.email, parsed.data.password),
+    );
+  });
+  app.get("/api/auth/me", async (context) => {
+    if (auth === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Authentication is not configured.",
+      );
+    const token = bearerToken(context.req.header("Authorization"));
+    if (token === undefined)
+      return jsonError(
+        context,
+        401,
+        "unauthorized",
+        "Authentication is required.",
+      );
+    return context.json(await auth.authenticate(token));
+  });
   app.get("/api/manga/search", async (context) => {
     const parsed = mangaSearchQuerySchema.safeParse({
       query: context.req.query("q"),
@@ -172,6 +240,10 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "provider_unavailable",
         "MangaDex is unavailable.",
       );
+    if (error instanceof AuthenticationError)
+      return jsonError(context, 401, "unauthorized", error.message);
+    if (error instanceof EmailAlreadyRegisteredError)
+      return jsonError(context, 409, "conflict", error.message);
     return jsonError(
       context,
       500,

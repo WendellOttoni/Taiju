@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-031 — User domain model.
+Last completed setup step: TASK-032 — Authentication.
 
 ## Implemented
 
@@ -34,22 +34,23 @@ Last completed setup step: TASK-031 — User domain model.
 - Reader settings persisted locally for mode, reading direction, image fit and UI visibility.
 - PostgreSQL/Drizzle package foundation with validated connection URLs, bounded client pool defaults and migration scripts.
 - Taiju-owned `users` and `profiles` tables with a generated migration and normalized unique email constraint.
+- E-mail/password authentication with Argon2id hashes, signed seven-day JWTs and authenticated-user endpoint.
 
 ## Not implemented yet
 
-- user library/progress;
+- user library, history and synchronized progress;
 - anime features.
 
 ## Current phase
 
-Persistence foundation complete; user state is next.
+Authentication complete; personal manga state is next.
 
 ## Next task
 
-`TASK-032 — Authentication`
+`TASK-033 — Library/favorites`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
 
-Authentication is not implemented yet; user tables are not exposed from the API.
+Authentication is enabled only when both `DATABASE_URL` and `AUTH_JWT_SECRET` are configured; migrations require a running PostgreSQL instance and were not applied in this workspace.
