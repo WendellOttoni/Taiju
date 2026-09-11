@@ -50,6 +50,7 @@ Last completed setup step: TASK-010 — Source runtime foundation.
 ## Not implemented yet
 
 - Real extension worker, source adapter and API integration.
+- End-to-end execution of a real Project Nox extension is blocked until the TachiyomiX/Mihon host API and dependencies are packaged for the JVM worker.
 
 ## Current phase
 
@@ -57,7 +58,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-011 — First real extension execution`
+`TASK-011 — First real extension execution (blocked pending host API packaging)`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
