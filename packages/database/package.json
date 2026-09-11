@@ -7,8 +7,18 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "echo 'Database package has no build output yet.'",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config drizzle.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'No database tests configured yet.'"
+    "test": "bun test"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }

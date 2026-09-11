@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-027 — Reader preferences.
+Last completed setup step: TASK-030 — PostgreSQL + Drizzle foundation.
 
 ## Implemented
 
@@ -32,24 +32,24 @@ Last completed setup step: TASK-027 — Reader preferences.
 - Vertical reader with lazy-loaded pages, per-page failure feedback, chapter navigation and local progress capture.
 - Optional page-by-page reader with keyboard/button navigation and adjacent-page preloading.
 - Reader settings persisted locally for mode, reading direction, image fit and UI visibility.
+- PostgreSQL/Drizzle package foundation with validated connection URLs, bounded client pool defaults and migration scripts.
 
 ## Not implemented yet
 
-- PostgreSQL/Drizzle setup;
 - authentication;
 - user library/progress;
 - anime features.
 
 ## Current phase
 
-MangaDex integration / reader complete.
+Persistence foundation complete; user state is next.
 
 ## Next task
 
-`TASK-030 — PostgreSQL + Drizzle foundation`
+`TASK-031 — User domain model`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
 
-The database package intentionally has no Drizzle configuration or schema. Those choices require a dedicated persistence task.
+No database tables exist yet. The first domain migration is introduced with the user model.

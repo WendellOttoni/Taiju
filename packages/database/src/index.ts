@@ -1,2 +1,1 @@
-// Database schema and Drizzle setup await a task with concrete persistence requirements.
-export {};
+export { createDatabase, parseDatabaseUrl, type TaijuDatabase } from "./client";
