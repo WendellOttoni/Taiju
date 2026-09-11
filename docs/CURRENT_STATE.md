@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-030 — PostgreSQL + Drizzle foundation.
+Last completed setup step: TASK-031 — User domain model.
 
 ## Implemented
 
@@ -33,10 +33,10 @@ Last completed setup step: TASK-030 — PostgreSQL + Drizzle foundation.
 - Optional page-by-page reader with keyboard/button navigation and adjacent-page preloading.
 - Reader settings persisted locally for mode, reading direction, image fit and UI visibility.
 - PostgreSQL/Drizzle package foundation with validated connection URLs, bounded client pool defaults and migration scripts.
+- Taiju-owned `users` and `profiles` tables with a generated migration and normalized unique email constraint.
 
 ## Not implemented yet
 
-- authentication;
 - user library/progress;
 - anime features.
 
@@ -46,10 +46,10 @@ Persistence foundation complete; user state is next.
 
 ## Next task
 
-`TASK-031 — User domain model`
+`TASK-032 — Authentication`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
 
-No database tables exist yet. The first domain migration is introduced with the user model.
+Authentication is not implemented yet; user tables are not exposed from the API.
