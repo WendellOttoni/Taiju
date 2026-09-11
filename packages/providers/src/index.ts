@@ -1,3 +1,5 @@
+export type { ChapterFeedOptions } from "./mangadex/chapters";
+export { getChapterFeed } from "./mangadex/chapters";
 export type {
   MangaDexClientOptions,
   MangaDexRequestOptions,

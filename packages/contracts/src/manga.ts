@@ -39,8 +39,31 @@ export const mangaSearchResponseSchema = z.object({
   offset: z.number().int().min(0),
 });
 
+export const chapterSummarySchema = z.object({
+  provider: z.literal("mangadex"),
+  providerId: z.string().uuid(),
+  mangaProviderId: z.string().uuid(),
+  chapter: z.string().trim().min(1).optional(),
+  volume: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  language: z.string().trim().min(1),
+  publishedAt: z.string().datetime(),
+  scanlationGroup: z
+    .object({ providerId: z.string().uuid(), name: z.string().trim().min(1) })
+    .optional(),
+});
+
+export const chapterFeedResponseSchema = z.object({
+  items: z.array(chapterSummarySchema),
+  total: z.number().int().min(0),
+  limit: z.number().int().min(1).max(100),
+  offset: z.number().int().min(0),
+});
+
 export type MangaStatus = z.infer<typeof mangaStatusSchema>;
 export type MangaSummary = z.infer<typeof mangaSummarySchema>;
 export type MangaDetails = z.infer<typeof mangaDetailsSchema>;
 export type MangaSearchQuery = z.infer<typeof mangaSearchQuerySchema>;
 export type MangaSearchResponse = z.infer<typeof mangaSearchResponseSchema>;
+export type ChapterSummary = z.infer<typeof chapterSummarySchema>;
+export type ChapterFeedResponse = z.infer<typeof chapterFeedResponseSchema>;

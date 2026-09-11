@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  getChapterFeed,
   MangaDexClient,
   MangaDexHttpError,
   MangaDexRateLimitError,
@@ -78,4 +79,43 @@ describe("MangaDexClient", () => {
       MangaDexTimeoutError,
     );
   });
+});
+
+test("normalizes a paginated MangaDex chapter feed", async () => {
+  let path = "";
+  const result = await getChapterFeed(
+    {
+      request: async (value) => {
+        path = value;
+        return new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+                attributes: {
+                  chapter: "1",
+                  translatedLanguage: "en",
+                  publishAt: "2026-01-01T00:00:00.000Z",
+                },
+                relationships: [
+                  {
+                    type: "scanlation_group",
+                    id: "b1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+                    attributes: { name: "Group" },
+                  },
+                ],
+              },
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0,
+          }),
+        );
+      },
+    },
+    "c1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+    { languages: ["en"] },
+  );
+  expect(path).toContain("translatedLanguage%5B%5D=en");
+  expect(result.items[0]?.scanlationGroup?.name).toBe("Group");
 });
