@@ -2,9 +2,9 @@
 
 ## Goals
 
-Taiju should remain easy to evolve while integrating multiple third-party content, metadata and reading sources.
+Taiju is a multi-source reader from the first implementation step. No reading source is privileged in product code, UI behavior or public contracts.
 
-The architecture is intentionally pragmatic: clear boundaries where they protect the product, minimal abstraction elsewhere.
+The architecture is intentionally pragmatic: strict isolation around external sources/providers, minimal abstraction elsewhere.
 
 ## High-level model
 
@@ -17,14 +17,17 @@ apps/web (React)
   v
 apps/api (Hono)
   |
-  +--> packages/providers --> MangaDex
-  |                     \--> AniList
-  |                     \--> Jikan
-  |                     \--> trace.moe
+  +--> packages/sources
+  |       |
+  |       +--> Project Nox catalog (index.pb)
+  |       +--> Source Registry
+  |       +--> Source Runtime / Compatibility Layer
+  |       +--> normalized ReadingSource capabilities
   |
-  +--> packages/sources --> Project Nox catalog (index.pb)
-  |                    \--> source adapters/extensions
-  |                    \--> normalized source capabilities
+  +--> packages/providers
+  |       +--> AniList
+  |       +--> Jikan
+  |       +--> trace.moe
   |
   +--> packages/database --> PostgreSQL
   |
@@ -40,13 +43,15 @@ Responsibilities:
 - client-side interaction/state;
 - calling Taiju HTTP endpoints;
 - consuming Taiju contracts;
-- allowing source selection where multiple sources expose the same title.
+- selecting/filtering sources and languages;
+- presenting source provenance and availability.
 
 Must not:
-- depend on MangaDex/AniList/Jikan/Project Nox internal DTO shapes;
+- depend on Project Nox internal structures;
+- know how a scan/source is scraped or executed;
+- hardcode source-specific routes or parsing rules;
 - contain provider credentials;
-- execute source-specific scraping/parsing logic;
-- embed provider business rules that belong in the API/provider/source layers.
+- consume external DTOs directly.
 
 ### API
 
@@ -54,7 +59,8 @@ Responsibilities:
 - HTTP routing;
 - request validation;
 - application orchestration;
-- source/provider resolution;
+- source resolution;
+- aggregation where a feature requests multiple sources;
 - mapping application results to public API responses;
 - authentication/authorization when introduced.
 
@@ -65,59 +71,43 @@ Route handlers should remain thin.
 `packages/contracts` contains Taiju-owned schemas/types that cross boundaries.
 
 Examples:
+- `SourceSummary`
+- `SourceCapability`
+- `SourceSearchResult`
 - `MangaSummary`
 - `MangaDetails`
 - `ChapterSummary`
 - `ReaderChapter`
-- `SourceSummary`
-- `SourceCapability`
 - pagination structures
 - API error contracts
 
 Use Zod where runtime validation is necessary and infer TypeScript types from schemas where practical.
 
-### Native providers
+No contract may encode assumptions about a specific scan/provider unless explicitly scoped as an internal adapter DTO.
 
-`packages/providers` contains integrations that Taiju owns directly.
+## Source engine
 
-A native provider owns:
-- HTTP client configuration;
-- provider-specific DTOs;
-- response validation where useful;
-- rate-limit/error translation;
-- mapping into Taiju-level data structures.
+`packages/sources` is the core reading integration layer.
 
-Initial native providers:
-- MangaDex;
-- AniList;
-- Jikan;
-- trace.moe.
-
-MangaDex remains the first native reading-provider implementation and a reference for Taiju contracts.
-
-### Source engine
-
-`packages/sources` is responsible for dynamic reading sources and source catalogs.
-
-The first catalog is Project Nox:
+The first source catalog is Project Nox:
 
 ```text
 https://github.com/Awerkori/extensoes/raw/repo/index.pb
 ```
 
-Project Nox publishes a modern binary source index and compiled source extensions. Taiju must treat the catalog as external registry metadata and translate it into its own internal source model.
-
-Responsibilities of the source engine:
+Responsibilities:
 - download and cache source catalog metadata;
-- decode/parse the Project Nox `index.pb` format;
-- enumerate every compatible source published by the catalog;
+- decode/parse `index.pb`;
+- enumerate all compatible published sources;
 - retain source identity, language, version and provenance;
-- resolve/install/load source implementations according to the supported runtime strategy;
-- expose source capabilities through a normalized Taiju interface;
-- isolate source failures so one broken source does not affect the whole application;
-- support source updates without requiring product-wide refactoring.
+- determine compatibility/runtime requirements;
+- resolve/install/load source implementations according to the chosen runtime strategy;
+- expose every reading source through normalized Taiju capabilities;
+- isolate failures per source;
+- support source updates/version changes;
+- support enable/disable and preference rules later.
 
-Target capability contract, conceptually:
+Directional capability contract:
 
 ```ts
 interface ReadingSource {
@@ -132,131 +122,149 @@ interface ReadingSource {
 }
 ```
 
-This interface is directional, not binding until defined by a numbered task.
+This is directional until a numbered task makes the contract binding.
 
-The product goal is to support **all Project Nox sources that are technically compatible with the Taiju runtime**, rather than manually maintaining a curated subset.
+## Source registry vs source runtime
 
-### Source registry vs source implementation
-
-These concepts must remain separate:
+These concepts are separate:
 
 ```text
 Project Nox index.pb
       ↓
 Source Registry
       ↓
-installed/available source descriptors
+source descriptors
       ↓
 Source Runtime / Adapter
       ↓
 Taiju ReadingSource contract
 ```
 
-The registry tells Taiju which sources exist and how they are versioned. The runtime executes or adapts the source implementation. Product code consumes only Taiju contracts.
+The registry answers which sources exist. The runtime answers how a compatible source executes. Product code consumes only the Taiju contract.
 
-### Database
+## Multi-source behavior
 
-PostgreSQL stores Taiju-owned user/application state, not mirrored copies of whole provider catalogs unless a future requirement explicitly justifies it.
+Search and reading must be source-neutral.
 
-Expected future persistence includes:
-- users;
-- favorites/library;
-- reading progress;
-- history;
-- preferences;
-- enabled/disabled source preferences;
-- provider/source references needed for synchronization.
-
-Drizzle owns schema and migrations.
-
-## Identity strategy
-
-External provider and source IDs must remain explicit.
-
-Bad:
-
-```ts
-id: string // ambiguous provider/source id
-```
-
-Prefer structures that retain provenance, e.g. source/provider + external ID, or Taiju-owned IDs for persisted entities with external references stored separately.
-
-The exact persisted identity model will be defined when user/library persistence is implemented.
-
-## API style
-
-Taiju will expose REST-style HTTP endpoints initially.
-
-Example direction:
+Directional examples:
 
 ```text
-GET /health
 GET /api/sources
-GET /api/sources/:sourceId
-GET /api/manga/search?q=...
+GET /api/manga/search?q=...&source=...
+GET /api/manga/search?q=...&sources=all
 GET /api/manga/:source/:id
 GET /api/manga/:source/:id/chapters
 GET /api/chapters/:source/:id/pages
 ```
 
-These are directional examples, not contracts yet. Endpoint design becomes binding only when introduced by a numbered task.
+A future aggregated search may query several enabled sources and return grouped/deduplicated results, but cross-source title matching must be explicit and must not rely only on title strings.
+
+No source should be selected implicitly because it was implemented first.
+
+## Metadata providers
+
+`packages/providers` is reserved primarily for non-reading integrations such as:
+- AniList;
+- Jikan;
+- trace.moe.
+
+Metadata enriches reading results but does not determine where content must be read.
+
+If a future reading integration needs a dedicated native adapter for technical reasons, it must still implement the same `ReadingSource` contract and remain indistinguishable to product code except for provenance/capabilities.
+
+## Database
+
+PostgreSQL stores Taiju-owned user/application state, not mirrors of entire external catalogs unless a concrete requirement later justifies it.
+
+Expected future persistence:
+- users;
+- favorites/library;
+- reading progress;
+- history;
+- preferences;
+- enabled/disabled sources;
+- preferred languages;
+- per-title source choices;
+- external/source references required for synchronization.
+
+Drizzle owns schema and migrations.
+
+## Identity strategy
+
+External source IDs must retain provenance.
+
+Bad:
+
+```ts
+id: string
+```
+
+Prefer source-aware references, e.g.:
+
+```ts
+type SourceRef = {
+  sourceId: string
+  externalId: string
+}
+```
+
+Persisted Taiju entities may later receive Taiju-owned IDs plus one or more external references.
 
 ## Error model
 
-Provider/source errors should not leak directly to consumers.
+Source failures must not leak implementation details to clients.
 
 Expected categories include:
 - validation error;
-- source not available;
+- source unavailable;
 - source incompatible;
 - source update required;
-- not found;
-- provider/source unavailable;
-- provider/source rate limited;
+- source rate limited;
 - upstream timeout;
+- not found;
 - internal error.
 
-Detailed mapping will be implemented with the first source/provider integrations.
+A failing source must not crash unrelated source operations where isolation is applicable.
 
 ## Caching
 
-Do not add Redis in the bootstrap task.
+Do not add Redis in bootstrap.
 
-Start with no distributed cache. Add caching after concrete API behavior demonstrates a need. When introduced, cache policy must account for:
-- source catalog freshness;
-- provider/source rate limits;
+When cache is introduced, policy must consider:
+- Project Nox catalog freshness;
+- source version updates;
+- per-source rate limits;
 - stale metadata tolerance;
-- chapter/page URL expiration where applicable;
+- page URL expiration;
 - invalidation complexity.
 
 ## Testing direction
 
 Initial levels:
-- unit tests for mapping/normalization logic;
-- API route tests for Taiju endpoints;
-- provider client tests with deterministic mocked responses;
-- source registry/parser tests using deterministic Project Nox fixtures;
-- source capability contract tests;
-- integration tests for database behavior when persistence arrives.
+- deterministic Project Nox catalog parser fixtures;
+- source registry tests;
+- source compatibility/runtime tests;
+- contract tests applied across source implementations;
+- API route tests;
+- mapping/normalization tests;
+- database integration tests when persistence arrives.
 
-Avoid tests that depend on live third-party APIs/sites in normal CI.
+Normal CI must not depend on live third-party sites.
 
 ## Security
 
 - No secrets in the repository.
-- External credentials are environment variables/secrets.
 - Validate all user-controlled parameters.
-- Apply bounded pagination and request limits.
-- Do not proxy arbitrary URLs supplied by users.
-- Source implementations are untrusted external integration code and must be isolated as much as the chosen runtime permits.
-- Verify available signatures/fingerprints when the source ecosystem exposes them.
+- Apply bounded pagination/request limits.
+- Do not proxy arbitrary user-supplied URLs.
+- Treat source implementations as untrusted external integration code.
+- Isolate source execution as much as the runtime permits.
+- Verify signatures/fingerprints when the source ecosystem exposes them.
 
 ## Evolution rules
 
-Do not create microservices at the start.
-
-Taiju begins as a modular monorepo. Split deployables only if operational needs later justify it.
-
-Do not introduce queues, Redis, event buses or elaborate domain layers without a real task requiring them.
-
-Do not hardcode individual scan/source sites in domain or UI code. All dynamic reading sources must flow through the source engine.
+- Start as a modular monorepo, not microservices.
+- Do not hardcode individual scan/source sites into domain or UI code.
+- Do not create a special-case architecture for MangaDex or any other source.
+- All reading paths must pass through source capabilities.
+- Do not add Redis, queues or event buses until a real requirement exists.
