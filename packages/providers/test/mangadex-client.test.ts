@@ -149,6 +149,33 @@ test("uses the MangaDex creation timestamp when a chapter has no publication tim
   expect(result.items[0]?.publishedAt).toBe("2026-01-02T00:00:00.000Z");
 });
 
+test("normalizes MangaDex offset timestamps to UTC", async () => {
+  const result = await getChapterFeed(
+    {
+      request: async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: "a1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+                attributes: {
+                  createdAt: "2026-01-02T01:00:00+01:00",
+                  publishAt: "2026-01-02T01:00:00+01:00",
+                  translatedLanguage: "en",
+                },
+              },
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0,
+          }),
+        ),
+    },
+    "c1e53f6e-0a6e-4d03-9f06-e4761ac50de5",
+  );
+  expect(result.items[0]?.publishedAt).toBe("2026-01-02T00:00:00.000Z");
+});
+
 test("resolves MangaDex@Home pages through the provider protocol", async () => {
   const result = await resolveChapterPages(
     {
