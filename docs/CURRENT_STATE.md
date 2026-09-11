@@ -55,6 +55,7 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - Falhas HTTP, GraphQL e timeout do Suwayomi são traduzidas para `503 source_runtime_unavailable`; o log da API mantém o diagnóstico do host sem expô-lo ao navegador.
 - Entradas internas do runtime com idioma fora do contrato Taiju (por exemplo, `Local source`) são ignoradas individualmente e não impedem a enumeração das fontes instaladas.
 - Identificadores numéricos retornados por fontes Suwayomi, como Comikey, são normalizados para referências externas textuais do Taiju.
+- Caminhos relativos de capa retornados pelo runtime, como os da Comikey, são resolvidos contra a URL configurada do Suwayomi antes de chegar ao frontend.
 
 ## Not implemented yet
 

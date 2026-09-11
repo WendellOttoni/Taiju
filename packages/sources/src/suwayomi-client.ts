@@ -87,7 +87,9 @@ export class SuwayomiRuntimeClient {
     );
     return {
       hasNextPage: data.fetchSourceManga.hasNextPage === true,
-      items: data.fetchSourceManga.mangas.map(mapManga),
+      items: data.fetchSourceManga.mangas.map((manga) =>
+        mapManga(manga, this.baseUrl),
+      ),
     };
   }
   async mangaAndChapters(mangaId: string): Promise<{
@@ -110,7 +112,7 @@ export class SuwayomiRuntimeClient {
       },
     );
     return {
-      manga: mapManga(data.fetchMangaAndChapters.manga),
+      manga: mapManga(data.fetchMangaAndChapters.manga, this.baseUrl),
       chapters: data.fetchMangaAndChapters.chapters.map(mapChapter),
     };
   }
@@ -212,7 +214,7 @@ function optionalText(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   return requireText(value, field);
 }
-function mapManga(manga: SuwayomiMangaDto): SuwayomiManga {
+function mapManga(manga: SuwayomiMangaDto, baseUrl: string): SuwayomiManga {
   if (!Array.isArray(manga.genre) || manga.genre.some((genre) => typeof genre !== "string"))
     throw new SuwayomiClientError("Suwayomi returned invalid manga genres.");
   return {
@@ -222,9 +224,20 @@ function mapManga(manga: SuwayomiMangaDto): SuwayomiManga {
     genres: manga.genre,
     id: requireIdentifier(manga.id, "manga.id"),
     status: requireText(manga.status, "manga.status"),
-    thumbnailUrl: optionalText(manga.thumbnailUrl, "manga.thumbnailUrl"),
+    thumbnailUrl: absoluteUrl(
+      optionalText(manga.thumbnailUrl, "manga.thumbnailUrl"),
+      baseUrl,
+    ),
     title: requireText(manga.title, "manga.title"),
   };
+}
+function absoluteUrl(value: string | undefined, baseUrl: string) {
+  if (value === undefined) return undefined;
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    throw new SuwayomiClientError("Suwayomi returned an invalid manga thumbnail URL.");
+  }
 }
 function mapChapter(chapter: SuwayomiChapterDto): SuwayomiChapter {
   if (typeof chapter.chapterNumber !== "number" || !Number.isFinite(chapter.chapterNumber))

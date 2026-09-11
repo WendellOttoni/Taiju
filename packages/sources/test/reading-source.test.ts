@@ -35,7 +35,7 @@ test("maps Suwayomi search results to Taiju-owned source references", async () =
                   genre: ["Action"],
                   id: 42,
                   status: "ONGOING",
-                  thumbnailUrl: "https://images.example/cover.jpg",
+                  thumbnailUrl: "/api/v1/manga/42/thumbnail",
                   title: "Taiju",
                 },
               ],
@@ -50,7 +50,7 @@ test("maps Suwayomi search results to Taiju-owned source references", async () =
     hasNextPage: false,
     items: [
       {
-        coverUrl: "https://images.example/cover.jpg",
+        coverUrl: "http://suwayomi.test/api/v1/manga/42/thumbnail",
         description: "Description",
         source: { externalId: "42", sourceId: "example.source:1" },
         tags: ["Action"],
