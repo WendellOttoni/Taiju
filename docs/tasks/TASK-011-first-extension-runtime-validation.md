@@ -18,9 +18,15 @@ Também foi verificada a coordenada JitPack indicada na documentação do Tachiy
 
 Não foi possível validar search, details, chapters ou pages. A extensão real ainda não é compatível com o runtime Taiju atual, e deve permanecer desabilitada no registry. Não há evidência suficiente para afirmar que uma fonte Project Nox já pode ser executada.
 
+## Alternativa de host selecionada
+
+A investigação identificou o Suwayomi-Server como host compatível existente: ele executa extensões Mihon/Tachiyomi em JVM desktop usando uma camada de compatibilidade Android e expõe APIs GraphQL/REST. A integração recomendada é tratá-lo como sidecar opcional, iniciado/configurado fora do processo Taiju, com um adaptador HTTP que converta respostas para contratos Taiju. O Suwayomi não será exposto diretamente ao frontend.
+
 ## Próximo bloqueio técnico
 
-Para concluir a validação é necessário fornecer uma implementação host própria ou uma distribuição JVM compatível, empacotar suas dependências (Kotlin, coroutines, OkHttp, Jsoup, serialização e Injekt), além de definir o adaptador de modelos e as políticas de sandbox. Isso deve ser resolvido antes de tentar as operações de leitura.
+Para concluir a validação é necessário iniciar uma versão fixa do Suwayomi-Server (ou host equivalente), instalar a extensão no sidecar, validar assinatura/hash e implementar o adaptador HTTP com timeouts, limites e mapeamento de modelos.
+
+Referência: [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server).
 
 ## Fora de escopo nesta tentativa
 
