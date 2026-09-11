@@ -29,41 +29,24 @@ export class SuwayomiRuntimeClient {
       throw new Error("Suwayomi timeout must be a positive integer.");
   }
   listSources() {
-    return this.request<unknown>("/api/v1/source");
-  }
-  search(sourceId: string, query: string) {
-    return this.request<unknown>(
-      `/api/v1/source/${encodeURIComponent(sourceId)}/search`,
-      { query },
+    return this.execute<unknown>(
+      "{ sources { nodes { id name lang homeUrl extension { pkgName } } } }",
     );
   }
-  getManga(mangaId: string) {
-    return this.request<unknown>(
-      `/api/v1/manga/${encodeURIComponent(mangaId)}`,
-    );
-  }
-  getChapters(mangaId: string) {
-    return this.request<unknown>(
-      `/api/v1/manga/${encodeURIComponent(mangaId)}/chapters`,
-    );
-  }
-  getPage(mangaId: string, chapterIndex: number, pageIndex: number) {
-    return this.request<unknown>(
-      `/api/v1/manga/${encodeURIComponent(mangaId)}/chapter/${chapterIndex}/page/${pageIndex}`,
-    );
-  }
-  private async request<T>(
-    path: string,
-    params?: Record<string, string | number>,
+  async execute<T>(
+    query: string,
+    variables?: Record<string, unknown>,
   ): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
-    for (const [key, value] of Object.entries(params ?? {}))
-      url.searchParams.set(key, String(value));
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const response = await this.fetcher(url, {
-        headers: { accept: "application/json" },
+      const response = await this.fetcher(`${this.baseUrl}/api/graphql`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ query, variables }),
         signal: controller.signal,
       });
       if (!response.ok)
@@ -72,7 +55,17 @@ export class SuwayomiRuntimeClient {
           response.status,
         );
       try {
-        return (await response.json()) as T;
+        const payload = (await response.json()) as {
+          data?: T;
+          errors?: Array<{ message?: string }>;
+        };
+        if (payload.errors?.length)
+          throw new SuwayomiClientError(
+            payload.errors[0]?.message ?? "Suwayomi returned a GraphQL error.",
+          );
+        if (payload.data === undefined)
+          throw new SuwayomiClientError("Suwayomi returned no GraphQL data.");
+        return payload.data;
       } catch {
         throw new SuwayomiClientError("Suwayomi returned invalid JSON.");
       }

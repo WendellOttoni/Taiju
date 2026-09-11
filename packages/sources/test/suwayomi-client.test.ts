@@ -12,11 +12,11 @@ describe("Suwayomi runtime client", () => {
       baseUrl: "http://suwayomi.test",
       fetch: async (input) => {
         requested = String(input);
-        return Response.json({ sources: [] });
+        return Response.json({ data: { sources: [] } });
       },
     });
     await expect(client.listSources()).resolves.toEqual({ sources: [] });
-    expect(requested).toBe("http://suwayomi.test/api/v1/source");
+    expect(requested).toBe("http://suwayomi.test/api/graphql");
   });
   test("translates HTTP and timeout failures", async () => {
     const failing = new SuwayomiRuntimeClient({

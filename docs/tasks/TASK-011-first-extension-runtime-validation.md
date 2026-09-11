@@ -24,7 +24,17 @@ A investigação identificou o Suwayomi-Server como host compatível existente: 
 
 ## Adaptador implementado
 
-Foi criado um cliente HTTP isolado para o sidecar Suwayomi, com endpoints REST configuráveis por base URL, timeout, cancelamento, tradução de status HTTP e validação de JSON. Ele permanece interno ao pacote `packages/sources`; nenhum DTO Suwayomi é exposto ao frontend.
+Foi criado um cliente GraphQL isolado para o sidecar Suwayomi, com base URL configurável, timeout, cancelamento, tradução de status HTTP/GraphQL e validação de JSON. A release validada direciona o REST legado para a WebUI; por isso o adaptador usa `/api/graphql`. Ele permanece interno ao pacote `packages/sources`; nenhum DTO Suwayomi é exposto ao frontend.
+
+## Validação do sidecar
+
+- release oficial `v2.3.2243` baixada temporariamente e SHA-256 conferido contra o checksum publicado;
+- sidecar iniciado com Java 21 e GraphQL respondeu;
+- catálogo Project Nox adicionado e enumerado pelo host: 1.412 extensões;
+- extensão MangaDex 1.6.0 instalada como fixture não privilegiada;
+- fontes MangaDex `en` e `pt-BR` carregadas pelo sidecar.
+
+O processo temporário encerrou antes da sequência de busca/detalhes/capítulos/páginas; essas operações permanecem pendentes de uma execução persistente do sidecar.
 
 ## Próximo bloqueio técnico
 
