@@ -63,6 +63,33 @@ describe("GET /health", () => {
     });
   });
 
+  test("lists source descriptors only through the configured runtime", async () => {
+    const testApp = createApp({
+      sources: {
+        get: async () => undefined,
+        list: async () => [
+          {
+            capabilities: ["search", "details", "chapters", "pages"],
+            compatible: true,
+            id: "example.source:1",
+            language: "en",
+            name: "Example",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "example.source",
+            },
+            version: "1.0",
+          },
+        ],
+      },
+    });
+    const response = await testApp.request("http://localhost/api/sources");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      items: [{ id: "example.source:1", language: "en" }],
+    });
+  });
+
   test("returns normalized manga details", async () => {
     const testApp = createApp({
       mangaDexClient: {

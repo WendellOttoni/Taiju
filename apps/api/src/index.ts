@@ -4,6 +4,7 @@ import {
   createHistoryRepository,
   createLibraryRepository,
 } from "@taiju/database";
+import { SuwayomiRuntimeClient, SuwayomiSourceDirectory } from "@taiju/sources";
 import { serve } from "bun";
 import { createApp } from "./app";
 import { createAuthService } from "./auth";
@@ -22,6 +23,12 @@ const auth =
         environment.AUTH_JWT_SECRET,
       )
     : undefined;
+const sources =
+  environment.SUWAYOMI_URL === undefined
+    ? undefined
+    : new SuwayomiSourceDirectory(
+        new SuwayomiRuntimeClient({ baseUrl: environment.SUWAYOMI_URL }),
+      );
 
 const app = createApp({
   auth,
@@ -29,6 +36,7 @@ const app = createApp({
     database === undefined ? undefined : createHistoryRepository(database),
   library:
     database === undefined ? undefined : createLibraryRepository(database),
+  sources,
 });
 
 serve({

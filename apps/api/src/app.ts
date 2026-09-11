@@ -15,6 +15,7 @@ import {
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
+import type { SourceDirectory } from "@taiju/sources";
 import { type Context, Hono } from "hono";
 import {
   AuthenticationError,
@@ -29,6 +30,7 @@ export type ApiDependencies = {
   history?: HistoryRepository;
   library?: LibraryRepository;
   mangaDexClient?: Pick<MangaDexClient, "request">;
+  sources?: SourceDirectory;
 };
 
 export function createApp(dependencies: ApiDependencies = {}) {
@@ -36,6 +38,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
   const auth = dependencies.auth;
   const library = dependencies.library;
   const history = dependencies.history;
+  const sources = dependencies.sources;
   const app = new Hono();
   app.use("*", async (context, next) => {
     const startedAt = performance.now();
@@ -244,6 +247,37 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Invalid manga search query.",
       );
     return context.json(await searchManga(mangaDexClient, parsed.data));
+  });
+  app.get("/api/sources", async (context) => {
+    if (sources === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The source runtime is not configured.",
+      );
+    const languages = (context.req
+      .queries("language") ?? [])
+      .filter((language) => language.trim() !== "");
+    try {
+      return context.json({
+        items: await sources.list(languages.length === 0 ? undefined : languages),
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          event: "source_list_error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The source runtime is unavailable.",
+      );
+    }
   });
   app.get("/api/manga/:provider/:id", async (context) => {
     if (context.req.param("provider") !== "mangadex")

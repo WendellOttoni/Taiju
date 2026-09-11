@@ -28,6 +28,8 @@ export type {
 export { createSourceRegistry, SourceRegistry } from "./registry";
 export type { ReadingSource } from "./reading-source";
 export { SuwayomiReadingSource } from "./reading-source";
+export type { SourceDirectory } from "./source-directory";
+export { SuwayomiSourceDirectory } from "./source-directory";
 export type {
   RuntimeOperation,
   RuntimeRequest,

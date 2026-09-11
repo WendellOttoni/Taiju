@@ -53,6 +53,7 @@ export type {
 export {
   sourceCapabilitySchema,
   sourceLanguageSchema,
+  sourceListResponseSchema,
   sourceProvenanceSchema,
   sourceRefSchema,
   sourceSummarySchema,

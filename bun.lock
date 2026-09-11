@@ -16,6 +16,7 @@
         "@taiju/contracts": "workspace:*",
         "@taiju/database": "workspace:*",
         "@taiju/providers": "workspace:*",
+        "@taiju/sources": "workspace:*",
         "hono": "^4.10.4",
         "zod": "^4.6.2",
       },
@@ -81,6 +82,9 @@
     "packages/sources": {
       "name": "@taiju/sources",
       "version": "0.0.0",
+      "dependencies": {
+        "@taiju/contracts": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "^1.4.2",
       },

@@ -32,6 +32,10 @@ export const sourceRefSchema = z.object({
   sourceId: z.string().trim().min(1),
 });
 
+export const sourceListResponseSchema = z.object({
+  items: z.array(sourceSummarySchema),
+});
+
 export type SourceCapability = z.infer<typeof sourceCapabilitySchema>;
 export type SourceLanguage = z.infer<typeof sourceLanguageSchema>;
 export type SourceProvenance = z.infer<typeof sourceProvenanceSchema>;

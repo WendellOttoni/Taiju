@@ -7,6 +7,7 @@ type ApiErrorCode =
   | "internal_error"
   | "not_found"
   | "provider_unavailable"
+  | "source_runtime_unavailable"
   | "unauthorized"
   | "validation_error";
 
