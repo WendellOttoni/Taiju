@@ -1,6 +1,7 @@
 import {
   createAuthUserRepository,
   createDatabase,
+  createHistoryRepository,
   createLibraryRepository,
 } from "@taiju/database";
 import { serve } from "bun";
@@ -24,6 +25,8 @@ const auth =
 
 const app = createApp({
   auth,
+  history:
+    database === undefined ? undefined : createHistoryRepository(database),
   library:
     database === undefined ? undefined : createLibraryRepository(database),
 });

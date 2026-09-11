@@ -39,7 +39,7 @@ This roadmap is directional. Numbered task files define executable scope.
 - chapter/page progress
 - user preferences
 
-## Phase 4 — Anime companion
+## Phase 4 — Anime companion (deferred)
 
 - AniList integration
 - anime search/details

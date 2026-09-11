@@ -3,8 +3,9 @@ import {
   chapterFeedQuerySchema,
   mangaSearchQuerySchema,
   readerChapterSchema,
+  readingProgressSchema,
 } from "@taiju/contracts";
-import type { LibraryRepository } from "@taiju/database";
+import type { HistoryRepository, LibraryRepository } from "@taiju/database";
 import {
   getChapterFeed,
   getMangaDetails,
@@ -24,6 +25,7 @@ import { jsonError } from "./http/errors";
 
 export type ApiDependencies = {
   auth?: AuthService;
+  history?: HistoryRepository;
   library?: LibraryRepository;
   mangaDexClient?: Pick<MangaDexClient, "request">;
 };
@@ -32,6 +34,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
   const mangaDexClient = dependencies.mangaDexClient ?? new MangaDexClient();
   const auth = dependencies.auth;
   const library = dependencies.library;
+  const history = dependencies.history;
   const app = new Hono();
   app.use("*", async (context, next) => {
     const startedAt = performance.now();
@@ -170,6 +173,54 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Invalid manga identifier.",
       );
     await library.remove(user.id, "mangadex", context.req.param("id"));
+    return context.body(null, 204);
+  });
+  app.get("/api/reading-history", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (history === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const items = await history.list(user.id);
+    return context.json({
+      items: items.map((item) => ({
+        ...item,
+        chapterProvider: "mangadex" as const,
+        mangaProvider: "mangadex" as const,
+        page: Number(item.page),
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+    });
+  });
+  app.put("/api/reading-progress", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (history === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const parsed = readingProgressSchema.safeParse(await context.req.json());
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid reading progress.",
+      );
+    await history.save(user.id, {
+      chapterProvider: parsed.data.chapterProvider,
+      chapterProviderId: parsed.data.chapterProviderId,
+      mangaProvider: parsed.data.mangaProvider,
+      mangaProviderId: parsed.data.mangaProviderId,
+      page: String(parsed.data.page),
+    });
     return context.body(null, 204);
   });
   app.get("/api/manga/search", async (context) => {

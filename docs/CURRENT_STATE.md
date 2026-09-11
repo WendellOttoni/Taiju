@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-034 — Reading history.
+Last completed setup step: TASK-035 — Reading progress synchronization.
 
 ## Implemented
 
@@ -37,22 +37,24 @@ Last completed setup step: TASK-034 — Reading history.
 - E-mail/password authentication with Argon2id hashes, signed seven-day JWTs and authenticated-user endpoint.
 - Authenticated library endpoints and persisted MangaDex favorites with user-scoped uniqueness.
 - User-scoped reading history records for manga, chapter, page and last update, with an indexed upsert model.
+- Authenticated progress-sync and reading-history endpoints for resuming on another session or device.
 
 ## Not implemented yet
 
-- synchronized progress;
-- anime features.
+- browser sign-in UI and reader-to-sync wiring.
 
 ## Current phase
 
-Authentication complete; personal manga state is next.
+Reader and personal-state backend milestone complete.
 
 ## Next task
 
-`TASK-035 — Reading progress synchronization`
+No next task is scheduled in the current scope.
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
 
 Authentication is enabled only when both `DATABASE_URL` and `AUTH_JWT_SECRET` are configured; migrations require a running PostgreSQL instance and were not applied in this workspace.
+
+Anime work is explicitly deferred and outside the current scope.

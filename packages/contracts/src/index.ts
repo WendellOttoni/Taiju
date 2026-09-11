@@ -23,3 +23,5 @@ export {
   mangaSummarySchema,
   readerChapterSchema,
 } from "./manga";
+export type { ReadingProgress } from "./reading";
+export { readingHistoryResponseSchema, readingProgressSchema } from "./reading";
