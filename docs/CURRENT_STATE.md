@@ -51,11 +51,12 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - `GET /api/sources` lista somente fontes efetivamente carregadas no sidecar Suwayomi; aceita `language` repetido como filtro e não expõe DTOs do host.
 - As rotas de busca, detalhes, capítulos e páginas aceitam identificadores de fonte do runtime e delegam à interface normalizada; o caminho MangaDex permanece como compatibilidade temporária.
 - Interface de descoberta, detalhes, capítulos e leitor migrada para referências de fonte; a busca exige escolha explícita de uma fonte `pt-BR` ou `en` disponível.
+- Busca em todas as fontes disponíveis com concorrência limitada, resultados parciais e aviso de fontes que falharam; a fonte escolhida é persistida localmente, sem conta.
 
 ## Not implemented yet
 
-- Orquestração de busca multi-source, escolha de fallback e fontes equivalentes por título.
-- Preferências persistentes de fonte/idioma e migração do histórico/biblioteca para IDs externos não UUID.
+- Escolha de fallback e fontes equivalentes por título.
+- Preferências de idioma e migração do histórico/biblioteca para IDs externos não UUID quando a conta for reintroduzida.
 - Scanner catalog-wide: compatibilidade deve ser confirmada por fonte instalada no sidecar, não inferida apenas do catálogo.
 - Validação persistente ao vivo de busca, detalhes, capítulos e páginas em uma fonte de fixture.
 

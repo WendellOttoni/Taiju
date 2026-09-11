@@ -120,6 +120,7 @@ describe("GET /health", () => {
             source: { externalId: "1", sourceId: "example.source:1" },
           }),
           search: async ({ query }) => ({
+            failedSourceIds: [],
             hasNextPage: false,
             items: [
               {
@@ -138,6 +139,7 @@ describe("GET /health", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
+      failedSourceIds: [],
       hasNextPage: false,
       items: [
         {

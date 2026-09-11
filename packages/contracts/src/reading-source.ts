@@ -25,6 +25,7 @@ export const sourceSearchQuerySchema = z.object({
 });
 
 export const sourceSearchResponseSchema = z.object({
+  failedSourceIds: z.array(z.string().trim().min(1)).default([]),
   hasNextPage: z.boolean(),
   items: z.array(sourceMangaSummarySchema),
 });

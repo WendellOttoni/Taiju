@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 
 const debounceMs = 350;
 const readerPreferencesKey = "taiju:reader-preferences";
+const sourcePreferenceKey = "taiju:source-preference";
 
 type ReaderPreferences = {
   imageFit: "contain" | "width";
@@ -68,7 +69,10 @@ function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SourceMangaSummary[]>([]);
   const [sources, setSources] = useState<SourceSummary[]>([]);
-  const [sourceId, setSourceId] = useState("");
+  const [sourceId, setSourceId] = useState(
+    () => localStorage.getItem(sourcePreferenceKey) ?? "",
+  );
+  const [failedSourceIds, setFailedSourceIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,9 +94,15 @@ function SearchPage() {
   }, []);
 
   useEffect(() => {
+    if (sourceId === "") localStorage.removeItem(sourcePreferenceKey);
+    else localStorage.setItem(sourcePreferenceKey, sourceId);
+  }, [sourceId]);
+
+  useEffect(() => {
     const normalizedQuery = query.trim();
     if (normalizedQuery.length === 0 || sourceId === "") {
       setResults([]);
+      setFailedSourceIds([]);
       setError(null);
       setIsLoading(false);
       return;
@@ -110,6 +120,7 @@ function SearchPage() {
         if (!response.ok) throw new Error("A busca não está disponível agora.");
         const payload = sourceSearchResponseSchema.parse(await response.json());
         setResults(payload.items);
+        setFailedSourceIds(payload.failedSourceIds);
       } catch (reason) {
         if (!controller.signal.aborted) {
           setResults([]);
@@ -163,6 +174,7 @@ function SearchPage() {
             className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-amber-400"
           >
             <option value="">Selecione uma fonte</option>
+            <option value="all">Todas as fontes disponíveis</option>
             {sources.map((source) => (
               <option key={source.id} value={source.id}>
                 {source.name} · {source.language}
@@ -178,6 +190,11 @@ function SearchPage() {
         {error && (
           <p className="mt-8 text-red-300" role="alert">
             {error}
+          </p>
+        )}
+        {failedSourceIds.length > 0 && (
+          <p className="mt-4 text-sm text-amber-300" role="status">
+            Algumas fontes não responderam; os demais resultados continuam disponíveis.
           </p>
         )}
         {!isLoading &&

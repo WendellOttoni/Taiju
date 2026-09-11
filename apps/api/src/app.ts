@@ -249,6 +249,34 @@ export function createApp(dependencies: ApiDependencies = {}) {
     const sourceId = context.req.query("source")?.trim();
     if (sourceId === undefined || sourceId === "")
       return context.json(await searchManga(mangaDexClient, parsed.data));
+    if (sourceId === "all") {
+      const selectedSources = await resolveSourcesForSearch(context, sources);
+      if (selectedSources instanceof Response) return selectedSources;
+      const page = Math.floor(parsed.data.offset / parsed.data.limit) + 1;
+      const searches = await mapWithConcurrency(selectedSources, 3, (source) =>
+        source.search({ page, query: parsed.data.query }),
+      );
+      const fulfilled = searches.filter(
+        (result): result is PromiseFulfilledResult<Awaited<ReturnType<ReadingSource["search"]>>> =>
+          result.status === "fulfilled",
+      );
+      if (fulfilled.length === 0)
+        return jsonError(
+          context,
+          503,
+          "source_runtime_unavailable",
+          "No selected source is available.",
+        );
+      return context.json({
+        failedSourceIds: searches.flatMap((result, index) =>
+          result.status === "rejected" && selectedSources[index] !== undefined
+            ? [selectedSources[index].descriptor.id]
+            : [],
+        ),
+        hasNextPage: fulfilled.some((result) => result.value.hasNextPage),
+        items: fulfilled.flatMap((result) => result.value.items),
+      });
+    }
     const source = await resolveSource(context, sources, sourceId);
     if (source instanceof Response) return source;
     return context.json(
@@ -497,6 +525,53 @@ async function resolveSource(
     "not_found",
     "The requested source was not found.",
   );
+}
+
+async function resolveSourcesForSearch(
+  context: Context,
+  sources: SourceDirectory | undefined,
+): Promise<ReadingSource[] | Response> {
+  if (sources === undefined)
+    return jsonError(
+      context,
+      503,
+      "source_runtime_unavailable",
+      "The source runtime is not configured.",
+    );
+  try {
+    const descriptors = await sources.list(["pt-BR", "en"]);
+    const resolved = await Promise.all(
+      descriptors.map((descriptor) => sources.get(descriptor.id)),
+    );
+    return resolved.filter((source): source is ReadingSource => source !== undefined);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        event: "source_search_resolve_error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
+    );
+    return jsonError(
+      context,
+      503,
+      "source_runtime_unavailable",
+      "The source runtime is unavailable.",
+    );
+  }
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  limit: number,
+  operation: (value: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  for (let index = 0; index < values.length; index += limit) {
+    const batch = values.slice(index, index + limit);
+    results.push(...(await Promise.allSettled(batch.map(operation))));
+  }
+  return results;
 }
 
 function isUuid(value: string): boolean {
