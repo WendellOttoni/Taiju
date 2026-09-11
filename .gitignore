@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Bun
+bun.lockb
+.bun/
+
+# Build output
+dist/
+build/
+coverage/
+.vite/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Local databases / temp
+*.sqlite
+*.sqlite3
+.tmp/
+tmp/
