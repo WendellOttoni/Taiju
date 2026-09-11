@@ -7,6 +7,7 @@ export type {
   MangaSearchResponse,
   MangaStatus,
   MangaSummary,
+  ReaderChapter,
 } from "./manga";
 export {
   chapterFeedQuerySchema,
@@ -16,4 +17,5 @@ export {
   mangaSearchQuerySchema,
   mangaSearchResponseSchema,
   mangaSummarySchema,
+  readerChapterSchema,
 } from "./manga";

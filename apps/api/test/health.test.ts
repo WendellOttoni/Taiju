@@ -122,4 +122,25 @@ describe("GET /health", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).items[0].language).toBe("en");
   });
+
+  test("returns resolved reader pages", async () => {
+    const testApp = createApp({
+      mangaDexClient: {
+        request: async () =>
+          new Response(
+            JSON.stringify({
+              baseUrl: "https://uploads.mangadex.org",
+              chapter: { hash: "hash", data: ["1.jpg"] },
+            }),
+          ),
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/chapters/mangadex/a1e53f6e-0a6e-4d03-9f06-e4761ac50de5/pages",
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).pageUrls).toEqual([
+      "https://uploads.mangadex.org/data/hash/1.jpg",
+    ]);
+  });
 });

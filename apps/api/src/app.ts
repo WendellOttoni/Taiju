@@ -1,12 +1,14 @@
 import {
   chapterFeedQuerySchema,
   mangaSearchQuerySchema,
+  readerChapterSchema,
 } from "@taiju/contracts";
 import {
   getChapterFeed,
   getMangaDetails,
   MangaDexClient,
   MangaDexHttpError,
+  resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
 import { Hono } from "hono";
@@ -121,6 +123,35 @@ export function createApp(dependencies: ApiDependencies = {}) {
           query.data.language === undefined ? undefined : [query.data.language],
         limit: query.data.limit,
         offset: query.data.offset,
+      }),
+    );
+  });
+  app.get("/api/chapters/:provider/:id/pages", async (context) => {
+    if (context.req.param("provider") !== "mangadex")
+      return jsonError(
+        context,
+        404,
+        "not_found",
+        "The requested resource was not found.",
+      );
+    const id = context.req.param("id");
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id,
+      )
+    )
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid chapter identifier.",
+      );
+    const pages = await resolveChapterPages(mangaDexClient, id);
+    return context.json(
+      readerChapterSchema.parse({
+        provider: "mangadex",
+        providerId: pages.chapterId,
+        pageUrls: pages.pages,
       }),
     );
   });

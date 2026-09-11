@@ -66,6 +66,12 @@ export const chapterFeedQuerySchema = z.object({
   offset: z.number().int().min(0).default(0),
 });
 
+export const readerChapterSchema = z.object({
+  provider: z.literal("mangadex"),
+  providerId: z.string().uuid(),
+  pageUrls: z.array(z.string().url()).min(1),
+});
+
 export type MangaStatus = z.infer<typeof mangaStatusSchema>;
 export type MangaSummary = z.infer<typeof mangaSummarySchema>;
 export type MangaDetails = z.infer<typeof mangaDetailsSchema>;
@@ -74,3 +80,4 @@ export type MangaSearchResponse = z.infer<typeof mangaSearchResponseSchema>;
 export type ChapterSummary = z.infer<typeof chapterSummarySchema>;
 export type ChapterFeedResponse = z.infer<typeof chapterFeedResponseSchema>;
 export type ChapterFeedQuery = z.infer<typeof chapterFeedQuerySchema>;
+export type ReaderChapter = z.infer<typeof readerChapterSchema>;

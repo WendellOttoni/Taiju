@@ -5,6 +5,8 @@ import {
   type MangaSummary,
   mangaDetailsSchema,
   mangaSearchResponseSchema,
+  type ReaderChapter,
+  readerChapterSchema,
 } from "@taiju/contracts";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -12,6 +14,14 @@ import { useEffect, useState } from "react";
 const debounceMs = 350;
 
 export function App() {
+  const readerMatch = window.location.pathname.match(
+    /^\/reader\/(mangadex)\/([0-9a-f-]{36})$/i,
+  );
+  if (readerMatch !== null) {
+    const [, provider, id] = readerMatch;
+    if (provider !== undefined && id !== undefined)
+      return <ReaderPage provider={provider} id={id} />;
+  }
   const match = window.location.pathname.match(
     /^\/manga\/(mangadex)\/([0-9a-f-]{36})$/i,
   );
@@ -243,9 +253,10 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
                 <p className="p-4 text-zinc-400">Nenhum capítulo disponível.</p>
               ) : (
                 chapters.map((chapter) => (
-                  <div
+                  <a
                     key={`${chapter.provider}:${chapter.providerId}`}
-                    className="flex items-center justify-between gap-4 p-4"
+                    href={`/reader/${chapter.provider}/${chapter.providerId}`}
+                    className="flex items-center justify-between gap-4 p-4 hover:bg-zinc-800"
                   >
                     <div>
                       <p className="font-medium">
@@ -262,7 +273,7 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
                     <span className="text-sm text-zinc-500">
                       {chapter.language.toUpperCase()}
                     </span>
-                  </div>
+                  </a>
                 ))
               )}
             </div>
@@ -279,5 +290,50 @@ function Detail({ label, values }: { label: string; values: string[] }) {
       <dt className="text-sm text-zinc-500">{label}</dt>
       <dd className="mt-1 text-zinc-200">{values.join(" · ")}</dd>
     </div>
+  );
+}
+
+function ReaderPage({ provider, id }: { provider: string; id: string }) {
+  const [chapter, setChapter] = useState<ReaderChapter | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(`/api/chapters/${provider}/${id}/pages`, {
+          signal: controller.signal,
+        });
+        if (!response.ok)
+          throw new Error("Não foi possível preparar o leitor.");
+        setChapter(readerChapterSchema.parse(await response.json()));
+      } catch (reason) {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível preparar o leitor.",
+          );
+      }
+    })();
+    return () => controller.abort();
+  }, [id, provider]);
+
+  if (error)
+    return (
+      <main className="min-h-screen bg-zinc-950 p-8 text-red-300">{error}</main>
+    );
+  return (
+    <main className="min-h-screen bg-zinc-950 p-8 text-zinc-50">
+      <a href="/" className="text-amber-400">
+        ← Voltar à busca
+      </a>
+      <h1 className="mt-6 text-3xl font-bold">Leitor</h1>
+      <p className="mt-3 text-zinc-300" role="status">
+        {chapter === null
+          ? "Preparando páginas…"
+          : `${chapter.pageUrls.length} páginas prontas.`}
+      </p>
+    </main>
   );
 }

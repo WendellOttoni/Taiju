@@ -1,6 +1,6 @@
 # Current State
 
-Last completed setup step: TASK-023 — MangaDex@Home page resolver.
+Last completed setup step: TASK-024 — Reader foundation.
 
 ## Implemented
 
@@ -28,6 +28,7 @@ Last completed setup step: TASK-023 — MangaDex@Home page resolver.
 - Chapter API endpoint with validated language and pagination parameters.
 - Chapter list rendered on manga detail pages.
 - MangaDex@Home chapter-page resolver isolated in the provider package.
+- Reader route and normalized chapter-page endpoint.
 
 ## Not implemented yet
 
@@ -39,11 +40,11 @@ Last completed setup step: TASK-023 — MangaDex@Home page resolver.
 
 ## Current phase
 
-MangaDex integration / page resolver complete.
+MangaDex integration / reader foundation complete.
 
 ## Next task
 
-`TASK-024 — Reader foundation`
+`TASK-025 — Vertical reader`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
