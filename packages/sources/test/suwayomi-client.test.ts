@@ -102,4 +102,18 @@ describe("Suwayomi runtime client", () => {
       SuwayomiContentUnavailableError,
     );
   });
+
+  test("resolves relative chapter page URLs against the runtime origin", async () => {
+    const client = new SuwayomiRuntimeClient({
+      baseUrl: "http://suwayomi.test",
+      fetch: async () =>
+        Response.json({
+          data: { fetchChapterPages: { pages: ["/api/v1/manga/1/page/0"] } },
+        }),
+    });
+
+    await expect(client.chapterPages("1")).resolves.toEqual([
+      "http://suwayomi.test/api/v1/manga/1/page/0",
+    ]);
+  });
 });

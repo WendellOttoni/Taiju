@@ -58,6 +58,7 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - Caminhos relativos de capa retornados pelo runtime, como os da Comikey, são resolvidos contra a URL configurada do Suwayomi antes de chegar ao frontend.
 - Respostas GraphQL parciais do Suwayomi são aceitas quando incluem dados válidos, permitindo exibir detalhes mesmo quando uma fonte ainda não retorna capítulos.
 - Quando uma extensão retorna um capítulo, mas não consegue resolver suas páginas, a API responde `404 content_unavailable` sem expor a exceção interna do Suwayomi.
+- URLs relativas de páginas devolvidas pelo Suwayomi são resolvidas contra a URL do sidecar antes de serem validadas e enviadas ao leitor.
 
 ## Not implemented yet
 

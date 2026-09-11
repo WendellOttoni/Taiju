@@ -133,7 +133,9 @@ export class SuwayomiRuntimeClient {
       );
     if (pages.some((page) => typeof page !== "string" || page.length === 0))
       throw new SuwayomiClientError("Suwayomi returned invalid chapter pages.");
-    return pages;
+    return pages.map((page) =>
+      absoluteUrl(page, this.baseUrl, "chapter page URL"),
+    );
   }
   async execute<T>(
     query: string,
@@ -222,6 +224,7 @@ function mapManga(manga: SuwayomiMangaDto, baseUrl: string): SuwayomiManga {
     manga.genre.some((genre) => typeof genre !== "string")
   )
     throw new SuwayomiClientError("Suwayomi returned invalid manga genres.");
+  const thumbnailUrl = optionalText(manga.thumbnailUrl, "manga.thumbnailUrl");
   return {
     artist: optionalText(manga.artist, "manga.artist"),
     author: optionalText(manga.author, "manga.author"),
@@ -229,21 +232,18 @@ function mapManga(manga: SuwayomiMangaDto, baseUrl: string): SuwayomiManga {
     genres: manga.genre,
     id: requireIdentifier(manga.id, "manga.id"),
     status: requireText(manga.status, "manga.status"),
-    thumbnailUrl: absoluteUrl(
-      optionalText(manga.thumbnailUrl, "manga.thumbnailUrl"),
-      baseUrl,
-    ),
+    thumbnailUrl:
+      thumbnailUrl === undefined
+        ? undefined
+        : absoluteUrl(thumbnailUrl, baseUrl, "manga thumbnail URL"),
     title: requireText(manga.title, "manga.title"),
   };
 }
-function absoluteUrl(value: string | undefined, baseUrl: string) {
-  if (value === undefined) return undefined;
+function absoluteUrl(value: string, baseUrl: string, field: string) {
   try {
     return new URL(value, baseUrl).toString();
   } catch {
-    throw new SuwayomiClientError(
-      "Suwayomi returned an invalid manga thumbnail URL.",
-    );
+    throw new SuwayomiClientError(`Suwayomi returned an invalid ${field}.`);
   }
 }
 function mapChapter(chapter: SuwayomiChapterDto): SuwayomiChapter {
