@@ -9,3 +9,4 @@ export {
   MangaDexRateLimitError,
   MangaDexTimeoutError,
 } from "./mangadex/errors";
+export { searchManga } from "./mangadex/search";
