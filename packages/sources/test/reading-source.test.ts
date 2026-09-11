@@ -33,7 +33,7 @@ test("maps Suwayomi search results to Taiju-owned source references", async () =
                   author: "Author",
                   description: "Description",
                   genre: ["Action"],
-                  id: "42",
+                  id: 42,
                   status: "ONGOING",
                   thumbnailUrl: "https://images.example/cover.jpg",
                   title: "Taiju",

@@ -203,6 +203,11 @@ function requireText(value: unknown, field: string): string {
     throw new SuwayomiClientError(`Suwayomi returned invalid ${field}.`);
   return value;
 }
+function requireIdentifier(value: unknown, field: string): string {
+  if (typeof value === "number" && Number.isSafeInteger(value))
+    return String(value);
+  return requireText(value, field);
+}
 function optionalText(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   return requireText(value, field);
@@ -215,7 +220,7 @@ function mapManga(manga: SuwayomiMangaDto): SuwayomiManga {
     author: optionalText(manga.author, "manga.author"),
     description: optionalText(manga.description, "manga.description"),
     genres: manga.genre,
-    id: requireText(manga.id, "manga.id"),
+    id: requireIdentifier(manga.id, "manga.id"),
     status: requireText(manga.status, "manga.status"),
     thumbnailUrl: optionalText(manga.thumbnailUrl, "manga.thumbnailUrl"),
     title: requireText(manga.title, "manga.title"),
@@ -225,8 +230,8 @@ function mapChapter(chapter: SuwayomiChapterDto): SuwayomiChapter {
   if (typeof chapter.chapterNumber !== "number" || !Number.isFinite(chapter.chapterNumber))
     throw new SuwayomiClientError("Suwayomi returned invalid chapter number.");
   return {
-    id: requireText(chapter.id, "chapter.id"),
-    mangaId: requireText(chapter.mangaId, "chapter.mangaId"),
+    id: requireIdentifier(chapter.id, "chapter.id"),
+    mangaId: requireIdentifier(chapter.mangaId, "chapter.mangaId"),
     name: requireText(chapter.name, "chapter.name"),
     number: chapter.chapterNumber,
     scanlator: optionalText(chapter.scanlator, "chapter.scanlator"),
