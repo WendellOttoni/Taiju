@@ -1,12 +1,14 @@
 import {
-  type ChapterSummary,
-  chapterFeedResponseSchema,
-  type MangaDetails,
-  type MangaSummary,
-  mangaDetailsSchema,
-  mangaSearchResponseSchema,
-  type ReaderChapter,
-  readerChapterSchema,
+  type SourceChapter,
+  sourceChapterListSchema,
+  type SourceMangaDetails,
+  type SourceMangaSummary,
+  sourceMangaDetailsSchema,
+  sourceReaderChapterSchema,
+  sourceSearchResponseSchema,
+  sourceListResponseSchema,
+  type SourceReaderChapter,
+  type SourceSummary,
 } from "@taiju/contracts";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -46,31 +48,50 @@ function loadReaderPreferences(): ReaderPreferences {
 
 export function App() {
   const readerMatch = window.location.pathname.match(
-    /^\/reader\/(mangadex)\/([0-9a-f-]{36})$/i,
+    /^\/reader\/([^/]+)\/([^/]+)$/,
   );
   if (readerMatch !== null) {
     const [, provider, id] = readerMatch;
     if (provider !== undefined && id !== undefined)
-      return <ReaderPage provider={provider} id={id} />;
+      return <ReaderPage provider={decodeURIComponent(provider)} id={decodeURIComponent(id)} />;
   }
   const match = window.location.pathname.match(
-    /^\/manga\/(mangadex)\/([0-9a-f-]{36})$/i,
+    /^\/manga\/([^/]+)\/([^/]+)$/,
   );
   if (match === null) return <SearchPage />;
   const [, provider, id] = match;
   if (provider === undefined || id === undefined) return <SearchPage />;
-  return <DetailsPage provider={provider} id={id} />;
+  return <DetailsPage provider={decodeURIComponent(provider)} id={decodeURIComponent(id)} />;
 }
 
 function SearchPage() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<MangaSummary[]>([]);
+  const [results, setResults] = useState<SourceMangaSummary[]>([]);
+  const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [sourceId, setSourceId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/sources?language=pt-BR&language=en", {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("As fontes não estão disponíveis agora.");
+        return sourceListResponseSchema.parse(await response.json());
+      })
+      .then((payload) => setSources(payload.items))
+      .catch((reason) => {
+        if (!controller.signal.aborted)
+          setError(reason instanceof Error ? reason.message : "Não foi possível carregar as fontes.");
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     const normalizedQuery = query.trim();
-    if (normalizedQuery.length === 0) {
+    if (normalizedQuery.length === 0 || sourceId === "") {
       setResults([]);
       setError(null);
       setIsLoading(false);
@@ -83,11 +104,11 @@ function SearchPage() {
       setError(null);
       try {
         const response = await fetch(
-          `/api/manga/search?q=${encodeURIComponent(normalizedQuery)}`,
+          `/api/manga/search?q=${encodeURIComponent(normalizedQuery)}&source=${encodeURIComponent(sourceId)}`,
           { signal: controller.signal },
         );
         if (!response.ok) throw new Error("A busca não está disponível agora.");
-        const payload = mangaSearchResponseSchema.parse(await response.json());
+        const payload = sourceSearchResponseSchema.parse(await response.json());
         setResults(payload.items);
       } catch (reason) {
         if (!controller.signal.aborted) {
@@ -107,7 +128,7 @@ function SearchPage() {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [query]);
+  }, [query, sourceId]);
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-16 text-zinc-50">
@@ -134,6 +155,21 @@ function SearchPage() {
             className="w-full rounded-xl border border-zinc-700 bg-zinc-900 py-4 pr-4 pl-12 text-lg outline-none placeholder:text-zinc-500 focus:border-amber-400"
           />
         </label>
+        <label className="mt-4 block max-w-2xl">
+          <span className="mb-2 block text-sm text-zinc-400">Fonte</span>
+          <select
+            value={sourceId}
+            onChange={(event) => setSourceId(event.target.value)}
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-amber-400"
+          >
+            <option value="">Selecione uma fonte</option>
+            {sources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name} · {source.language}
+              </option>
+            ))}
+          </select>
+        </label>
         {isLoading && (
           <p className="mt-8 text-zinc-300" role="status">
             Buscando títulos…
@@ -146,15 +182,15 @@ function SearchPage() {
         )}
         {!isLoading &&
           !error &&
-          query.trim() !== "" &&
+          query.trim() !== "" && sourceId !== "" &&
           results.length === 0 && (
             <p className="mt-8 text-zinc-300">Nenhum título encontrado.</p>
           )}
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {results.map((manga) => (
             <a
-              key={`${manga.provider}:${manga.providerId}`}
-              href={`/manga/${manga.provider}/${manga.providerId}`}
+              key={`${manga.source.sourceId}:${manga.source.externalId}`}
+              href={`/manga/${encodeURIComponent(manga.source.sourceId)}/${encodeURIComponent(manga.source.externalId)}`}
               className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
             >
               <div className="aspect-[2/3] bg-zinc-800">
@@ -184,19 +220,19 @@ function SearchPage() {
 }
 
 function DetailsPage({ provider, id }: { provider: string; id: string }) {
-  const [manga, setManga] = useState<MangaDetails | null>(null);
-  const [chapters, setChapters] = useState<ChapterSummary[]>([]);
+  const [manga, setManga] = useState<SourceMangaDetails | null>(null);
+  const [chapters, setChapters] = useState<SourceChapter[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch(`/api/manga/${provider}/${id}`, {
+        const response = await fetch(`/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`, {
           signal: controller.signal,
         });
         if (!response.ok)
           throw new Error("Não foi possível carregar os detalhes.");
-        setManga(mangaDetailsSchema.parse(await response.json()));
+        setManga(sourceMangaDetailsSchema.parse(await response.json()));
       } catch (reason) {
         if (!controller.signal.aborted)
           setError(
@@ -212,14 +248,12 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch(`/api/manga/${provider}/${id}/chapters`, {
+        const response = await fetch(`/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/chapters`, {
           signal: controller.signal,
         });
         if (!response.ok)
           throw new Error("Não foi possível carregar os capítulos.");
-        setChapters(
-          chapterFeedResponseSchema.parse(await response.json()).items,
-        );
+        setChapters(sourceChapterListSchema.parse(await response.json()).items);
       } catch (reason) {
         if (!controller.signal.aborted)
           setError(
@@ -274,7 +308,6 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
           <dl className="mt-8 grid gap-4 sm:grid-cols-2">
             <Detail label="Autores" values={manga.authors} />
             <Detail label="Artistas" values={manga.artists} />
-            <Detail label="Idiomas" values={manga.availableLanguages} />
             <Detail label="Tags" values={manga.tags} />
           </dl>
           <section className="mt-10">
@@ -285,24 +318,23 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
               ) : (
                 chapters.map((chapter) => (
                   <a
-                    key={`${chapter.provider}:${chapter.providerId}`}
-                    href={`/reader/${chapter.provider}/${chapter.providerId}?manga=${id}`}
+                    key={`${chapter.source.sourceId}:${chapter.source.externalId}`}
+                    href={`/reader/${encodeURIComponent(chapter.source.sourceId)}/${encodeURIComponent(chapter.source.externalId)}?manga=${encodeURIComponent(id)}`}
                     className="flex items-center justify-between gap-4 p-4 hover:bg-zinc-800"
                   >
                     <div>
                       <p className="font-medium">
-                        {chapter.volume && `Vol. ${chapter.volume} · `}Cap.{" "}
-                        {chapter.chapter ?? "—"}
+                        Cap. {chapter.chapter ?? "—"}
                         {chapter.title && ` — ${chapter.title}`}
                       </p>
                       {chapter.scanlationGroup && (
                         <p className="mt-1 text-sm text-zinc-400">
-                          {chapter.scanlationGroup.name}
+                          {chapter.scanlationGroup}
                         </p>
                       )}
                     </div>
                     <span className="text-sm text-zinc-500">
-                      {chapter.language.toUpperCase()}
+                      {chapter.language?.toUpperCase() ?? "—"}
                     </span>
                   </a>
                 ))
@@ -325,10 +357,10 @@ function Detail({ label, values }: { label: string; values: string[] }) {
 }
 
 function ReaderPage({ provider, id }: { provider: string; id: string }) {
-  const [chapter, setChapter] = useState<ReaderChapter | null>(null);
+  const [chapter, setChapter] = useState<SourceReaderChapter | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [failedPages, setFailedPages] = useState<Set<number>>(() => new Set());
-  const [siblings, setSiblings] = useState<ChapterSummary[]>([]);
+  const [siblings, setSiblings] = useState<SourceChapter[]>([]);
   const [preferences, setPreferences] = useState<ReaderPreferences>(
     loadReaderPreferences,
   );
@@ -343,12 +375,12 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
         setChapter(null);
         setPageIndex(0);
         setFailedPages(new Set());
-        const response = await fetch(`/api/chapters/${provider}/${id}/pages`, {
+        const response = await fetch(`/api/chapters/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/pages`, {
           signal: controller.signal,
         });
         if (!response.ok)
           throw new Error("Não foi possível preparar o leitor.");
-        setChapter(readerChapterSchema.parse(await response.json()));
+        setChapter(sourceReaderChapterSchema.parse(await response.json()));
       } catch (reason) {
         if (!controller.signal.aborted)
           setError(
@@ -364,19 +396,21 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   useEffect(() => {
     if (mangaId === null) return;
     const controller = new AbortController();
-    void fetch(`/api/manga/${provider}/${mangaId}/chapters?limit=100`, {
+    void fetch(`/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(mangaId)}/chapters`, {
       signal: controller.signal,
     })
       .then((response) => (response.ok ? response.json() : undefined))
       .then((data) => {
         if (data !== undefined)
-          setSiblings(chapterFeedResponseSchema.parse(data).items);
+          setSiblings(sourceChapterListSchema.parse(data).items);
       })
       .catch(() => undefined);
     return () => controller.abort();
   }, [mangaId, provider]);
 
-  const currentIndex = siblings.findIndex((item) => item.providerId === id);
+  const currentIndex = siblings.findIndex(
+    (item) => item.source.externalId === id && item.source.sourceId === provider,
+  );
   const previous = currentIndex > 0 ? siblings[currentIndex - 1] : undefined;
   const next = currentIndex >= 0 ? siblings[currentIndex + 1] : undefined;
 
@@ -555,7 +589,7 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
           <nav className="flex justify-between gap-4 p-6">
             {previous ? (
               <a
-                href={`/reader/${provider}/${previous.providerId}?manga=${mangaId ?? ""}`}
+                href={`/reader/${encodeURIComponent(previous.source.sourceId)}/${encodeURIComponent(previous.source.externalId)}?manga=${encodeURIComponent(mangaId ?? "")}`}
                 className="rounded bg-zinc-800 px-4 py-2"
               >
                 ← Capítulo anterior
@@ -565,7 +599,7 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
             )}
             {next ? (
               <a
-                href={`/reader/${provider}/${next.providerId}?manga=${mangaId ?? ""}`}
+                href={`/reader/${encodeURIComponent(next.source.sourceId)}/${encodeURIComponent(next.source.externalId)}?manga=${encodeURIComponent(mangaId ?? "")}`}
                 className="rounded bg-zinc-800 px-4 py-2"
               >
                 Próximo capítulo →

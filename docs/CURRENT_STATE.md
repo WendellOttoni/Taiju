@@ -50,11 +50,12 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - Adaptador de leitura Suwayomi para busca, detalhes, capítulos e páginas, convertido para contratos Taiju com referências explícitas de fonte.
 - `GET /api/sources` lista somente fontes efetivamente carregadas no sidecar Suwayomi; aceita `language` repetido como filtro e não expõe DTOs do host.
 - As rotas de busca, detalhes, capítulos e páginas aceitam identificadores de fonte do runtime e delegam à interface normalizada; o caminho MangaDex permanece como compatibilidade temporária.
+- Interface de descoberta, detalhes, capítulos e leitor migrada para referências de fonte; a busca exige escolha explícita de uma fonte `pt-BR` ou `en` disponível.
 
 ## Not implemented yet
 
-- Busca, detalhes, capítulos e leitor ligados às fontes selecionadas; a interface ainda usa o fluxo legado MangaDex.
-- Orquestração de busca multi-source e UI de seleção de fontes.
+- Orquestração de busca multi-source, escolha de fallback e fontes equivalentes por título.
+- Preferências persistentes de fonte/idioma e migração do histórico/biblioteca para IDs externos não UUID.
 - Scanner catalog-wide: compatibilidade deve ser confirmada por fonte instalada no sidecar, não inferida apenas do catálogo.
 - Validação persistente ao vivo de busca, detalhes, capítulos e páginas em uma fonte de fixture.
 
@@ -64,7 +65,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 ## Next task
 
-`TASK-014 — Single-source search API`
+`TASK-015 — Multi-source search orchestration`
 
 See `docs/DEVELOPMENT_PLAN.md`.
 
