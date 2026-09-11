@@ -36,3 +36,9 @@ export {
   encodeRuntimeRequest,
   SourceRuntimeProtocolError,
 } from "./runtime-protocol";
+export type { SuwayomiClientOptions } from "./suwayomi-client";
+export {
+  SuwayomiClientError,
+  SuwayomiClientTimeoutError,
+  SuwayomiRuntimeClient,
+} from "./suwayomi-client";

@@ -52,6 +52,7 @@ Last completed setup step: TASK-010 — Source runtime foundation.
 - Real extension adapter and API integration.
 - End-to-end execution of a real Project Nox extension is blocked until the TachiyomiX/Mihon host API and dependencies are packaged for the JVM worker.
 - Suwayomi-Server foi selecionado como alternativa de host sidecar; o adaptador HTTP ainda não foi implementado.
+- Cliente HTTP interno do Suwayomi implementado com timeout, cancelamento e tradução de falhas; execução real e mapeamento de modelos ainda pendentes.
 
 ## Current phase
 

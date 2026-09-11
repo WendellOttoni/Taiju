@@ -22,9 +22,13 @@ Não foi possível validar search, details, chapters ou pages. A extensão real 
 
 A investigação identificou o Suwayomi-Server como host compatível existente: ele executa extensões Mihon/Tachiyomi em JVM desktop usando uma camada de compatibilidade Android e expõe APIs GraphQL/REST. A integração recomendada é tratá-lo como sidecar opcional, iniciado/configurado fora do processo Taiju, com um adaptador HTTP que converta respostas para contratos Taiju. O Suwayomi não será exposto diretamente ao frontend.
 
+## Adaptador implementado
+
+Foi criado um cliente HTTP isolado para o sidecar Suwayomi, com endpoints REST configuráveis por base URL, timeout, cancelamento, tradução de status HTTP e validação de JSON. Ele permanece interno ao pacote `packages/sources`; nenhum DTO Suwayomi é exposto ao frontend.
+
 ## Próximo bloqueio técnico
 
-Para concluir a validação é necessário iniciar uma versão fixa do Suwayomi-Server (ou host equivalente), instalar a extensão no sidecar, validar assinatura/hash e implementar o adaptador HTTP com timeouts, limites e mapeamento de modelos.
+Para concluir a validação é necessário iniciar uma versão fixa do Suwayomi-Server, instalar a extensão no sidecar, validar assinatura/hash e implementar o mapeamento de modelos para contratos Taiju.
 
 Referência: [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server).
 
