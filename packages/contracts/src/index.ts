@@ -28,8 +28,14 @@ export { readingHistoryResponseSchema, readingProgressSchema } from "./reading";
 export type {
   SourceChapter,
   SourceChapterList,
+  SourceDiscoveryKind,
+  SourceDiscoveryQuery,
   SourceMangaDetails,
+  SourceMangaGroup,
   SourceMangaSummary,
+  SourceLibraryEntry,
+  SourceReadingProgress,
+  SourceGroupedSearchResponse,
   SourceReaderChapter,
   SourceSearchQuery,
   SourceSearchResponse,
@@ -37,8 +43,16 @@ export type {
 export {
   sourceChapterListSchema,
   sourceChapterSchema,
+  sourceDiscoveryKindSchema,
+  sourceDiscoveryQuerySchema,
   sourceMangaDetailsSchema,
+  sourceMangaGroupSchema,
   sourceMangaSummarySchema,
+  sourceGroupedSearchResponseSchema,
+  sourceLibraryEntrySchema,
+  sourceLibraryResponseSchema,
+  sourceReadingHistoryResponseSchema,
+  sourceReadingProgressSchema,
   sourceReaderChapterSchema,
   sourceSearchQuerySchema,
   sourceSearchResponseSchema,
@@ -58,3 +72,5 @@ export {
   sourceRefSchema,
   sourceSummarySchema,
 } from "./source";
+export type { SourcePreferences } from "./source-preferences";
+export { sourcePreferencesSchema } from "./source-preferences";

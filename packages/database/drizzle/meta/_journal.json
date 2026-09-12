@@ -29,6 +29,27 @@
       "when": 1789145038027,
       "tag": "0003_lying_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789145640000,
+      "tag": "0004_source_runtime_validations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789145940000,
+      "tag": "0005_user_source_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789239240000,
+      "tag": "0006_source_neutral_persistence",
+      "breakpoints": true
     }
   ]
 }

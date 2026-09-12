@@ -4,8 +4,18 @@ import {
   mangaSearchQuerySchema,
   readerChapterSchema,
   readingProgressSchema,
+  sourceDiscoveryQuerySchema,
+  sourcePreferencesSchema,
+  sourceReadingProgressSchema,
+  sourceSearchQuerySchema,
 } from "@taiju/contracts";
-import type { HistoryRepository, LibraryRepository } from "@taiju/database";
+import type { SourceMangaSummary, SourceSearchResponse } from "@taiju/contracts";
+import type {
+  HistoryRepository,
+  LibraryRepository,
+  RuntimeValidationRepository,
+  SourcePreferencesRepository,
+} from "@taiju/database";
 import {
   getChapterFeed,
   getMangaDetails,
@@ -20,6 +30,7 @@ import {
   type SourceDirectory,
   SuwayomiClientError,
   SuwayomiContentUnavailableError,
+  validateReadingSource,
 } from "@taiju/sources";
 import { type Context, Hono } from "hono";
 import {
@@ -36,6 +47,8 @@ export type ApiDependencies = {
   library?: LibraryRepository;
   mangaDexClient?: Pick<MangaDexClient, "request">;
   sources?: SourceDirectory;
+  validationRepository?: RuntimeValidationRepository;
+  sourcePreferences?: SourcePreferencesRepository;
 };
 
 export function createApp(dependencies: ApiDependencies = {}) {
@@ -44,6 +57,8 @@ export function createApp(dependencies: ApiDependencies = {}) {
   const library = dependencies.library;
   const history = dependencies.history;
   const sources = dependencies.sources;
+  const validationRepository = dependencies.validationRepository;
+  const sourcePreferences = dependencies.sourcePreferences;
   const app = new Hono();
   app.use("*", async (context, next) => {
     const startedAt = performance.now();
@@ -118,6 +133,46 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Authentication is required.",
       );
     return context.json(await auth.authenticate(token));
+  });
+  app.get("/api/source-preferences", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (sourcePreferences === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Source preferences are not configured.",
+      );
+    const preferences = await sourcePreferences.get(user.id);
+    return context.json({
+      preferredLanguages: preferences?.preferredLanguages ?? ["pt-BR", "en"],
+      enabledSourceIds: preferences?.enabledSourceIds ?? [],
+    });
+  });
+  app.put("/api/source-preferences", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (sourcePreferences === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Source preferences are not configured.",
+      );
+    const parsed = sourcePreferencesSchema.safeParse(await context.req.json());
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid source preferences.",
+      );
+    const saved = await sourcePreferences.save(user.id, parsed.data);
+    return context.json({
+      preferredLanguages: saved.preferredLanguages,
+      enabledSourceIds: saved.enabledSourceIds,
+    });
   });
   app.get("/api/library", async (context) => {
     const user = await authenticatedUser(context, auth);
@@ -232,6 +287,113 @@ export function createApp(dependencies: ApiDependencies = {}) {
     });
     return context.body(null, 204);
   });
+  app.get("/api/source-library", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (library === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const items = await library.list(user.id);
+    return context.json({
+      items: items.map((item) => ({
+        createdAt: item.createdAt.toISOString(),
+        manga: {
+          externalId: item.mangaProviderId,
+          sourceId: item.mangaProvider,
+        },
+      })),
+    });
+  });
+  app.put("/api/source-library/:sourceId/:externalId", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (library === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const manga = {
+      externalId: context.req.param("externalId"),
+      sourceId: context.req.param("sourceId"),
+    };
+    if (!validSourceRef(manga))
+      return jsonError(context, 400, "validation_error", "Invalid manga source.");
+    await library.add(user.id, manga.sourceId, manga.externalId);
+    return context.body(null, 204);
+  });
+  app.delete("/api/source-library/:sourceId/:externalId", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (library === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const manga = {
+      externalId: context.req.param("externalId"),
+      sourceId: context.req.param("sourceId"),
+    };
+    if (!validSourceRef(manga))
+      return jsonError(context, 400, "validation_error", "Invalid manga source.");
+    await library.remove(user.id, manga.sourceId, manga.externalId);
+    return context.body(null, 204);
+  });
+  app.get("/api/source-reading-history", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (history === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const items = await history.list(user.id);
+    return context.json({
+      items: items.map((item) => ({
+        chapter: {
+          externalId: item.chapterProviderId,
+          sourceId: item.chapterProvider,
+        },
+        manga: {
+          externalId: item.mangaProviderId,
+          sourceId: item.mangaProvider,
+        },
+        page: Number(item.page),
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+    });
+  });
+  app.put("/api/source-reading-progress", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (history === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const parsed = sourceReadingProgressSchema.safeParse(await context.req.json());
+    if (!parsed.success)
+      return jsonError(context, 400, "validation_error", "Invalid reading progress.");
+    await history.save(user.id, {
+      chapterProvider: parsed.data.chapter.sourceId,
+      chapterProviderId: parsed.data.chapter.externalId,
+      mangaProvider: parsed.data.manga.sourceId,
+      mangaProviderId: parsed.data.manga.externalId,
+      page: String(parsed.data.page),
+    });
+    return context.body(null, 204);
+  });
   app.get("/api/manga/search", async (context) => {
     const parsed = mangaSearchQuerySchema.safeParse({
       query: context.req.query("q"),
@@ -282,7 +444,9 @@ export function createApp(dependencies: ApiDependencies = {}) {
             : [],
         ),
         hasNextPage: fulfilled.some((result) => result.value.hasNextPage),
-        items: fulfilled.flatMap((result) => result.value.items),
+        items: groupSourceSearchItems(
+          fulfilled.flatMap((result) => result.value.items),
+        ),
       });
     }
     const source = await resolveSource(context, sources, sourceId);
@@ -293,6 +457,66 @@ export function createApp(dependencies: ApiDependencies = {}) {
         query: parsed.data.query,
       }),
     );
+  });
+  app.get("/api/manga/discover", async (context) => {
+    const parsed = sourceDiscoveryQuerySchema.safeParse({
+      kind: context.req.query("kind"),
+      page:
+        context.req.query("page") === undefined
+          ? undefined
+          : Number(context.req.query("page")),
+    });
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid source discovery query.",
+      );
+    const sourceId = context.req.query("source")?.trim() ?? "all";
+    if (sourceId === "all") {
+      const selectedSources = await resolveSourcesForSearch(context, sources);
+      if (selectedSources instanceof Response) return selectedSources;
+      const discoverableSources = selectedSources.filter(
+        (source) => source.discover !== undefined,
+      );
+      const results = await mapWithConcurrency(discoverableSources, 2, (source) =>
+        source.discover?.(parsed.data) ??
+        Promise.reject(new Error("Source discovery is unavailable.")),
+      );
+      const fulfilled = results.filter(
+        (result): result is PromiseFulfilledResult<SourceSearchResponse> =>
+          result.status === "fulfilled",
+      );
+      if (fulfilled.length === 0)
+        return jsonError(
+          context,
+          503,
+          "source_runtime_unavailable",
+          "No selected source is available.",
+        );
+      return context.json({
+        failedSourceIds: results.flatMap((result, index) =>
+          result.status === "rejected" && discoverableSources[index] !== undefined
+            ? [discoverableSources[index].descriptor.id]
+            : [],
+        ),
+        hasNextPage: fulfilled.some((result) => result.value.hasNextPage),
+        items: groupSourceSearchItems(
+          fulfilled.flatMap((result) => result.value.items.slice(0, 20)),
+        ),
+      });
+    }
+    const source = await resolveSource(context, sources, sourceId);
+    if (source instanceof Response) return source;
+    if (source.discover === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The selected source does not support discovery.",
+      );
+    return context.json(await source.discover(parsed.data));
   });
   app.get("/api/sources", async (context) => {
     if (sources === undefined)
@@ -306,10 +530,35 @@ export function createApp(dependencies: ApiDependencies = {}) {
       (language) => language.trim() !== "",
     );
     try {
+      let preferredLanguages: string[] | undefined;
+      let enabledSourceIds: string[] | undefined;
+      const token = bearerToken(context.req.header("Authorization"));
+      if (
+        token !== undefined &&
+        auth !== undefined &&
+        sourcePreferences !== undefined
+      ) {
+        const user = await auth.authenticate(token);
+        const preferences = await sourcePreferences.get(user.id);
+        preferredLanguages = preferences?.preferredLanguages;
+        enabledSourceIds = preferences?.enabledSourceIds;
+      }
+      const listed = await sources.list(
+        languages.length === 0 ? undefined : languages,
+      );
+      const ordered = [...listed].sort((left, right) => {
+        const leftLanguage = preferredLanguages?.indexOf(left.language) ?? -1;
+        const rightLanguage = preferredLanguages?.indexOf(right.language) ?? -1;
+        return (
+          (leftLanguage < 0 ? 999 : leftLanguage) -
+          (rightLanguage < 0 ? 999 : rightLanguage)
+        );
+      });
       return context.json({
-        items: await sources.list(
-          languages.length === 0 ? undefined : languages,
-        ),
+        items:
+          enabledSourceIds && enabledSourceIds.length > 0
+            ? ordered.filter((source) => enabledSourceIds.includes(source.id))
+            : ordered,
       });
     } catch (error) {
       console.error(
@@ -317,6 +566,187 @@ export function createApp(dependencies: ApiDependencies = {}) {
           errorName: error instanceof Error ? error.name : "UnknownError",
           event: "source_list_error",
           message: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The source runtime is unavailable.",
+      );
+    }
+  });
+  app.get("/api/sources/validate", async (context) => {
+    if (sources === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The source runtime is not configured.",
+      );
+    const parsed = sourceSearchQuerySchema.safeParse({
+      query: context.req.query("q"),
+      page: 1,
+    });
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid source validation query.",
+      );
+    const selectedId = context.req.query("source")?.trim();
+    try {
+      const descriptors = selectedId
+        ? (await sources.list()).filter(
+            (descriptor) => descriptor.id === selectedId,
+          )
+        : await sources.list(["pt-BR", "en"]);
+      if (descriptors.length === 0)
+        return jsonError(
+          context,
+          404,
+          "not_found",
+          "The requested source was not found.",
+        );
+      const resolved = await mapWithConcurrency(
+        descriptors,
+        3,
+        async (descriptor) => {
+          const source = await sources.get(descriptor.id);
+          if (source === undefined)
+            throw new Error("Source is no longer available.");
+          return validateReadingSource(source, { query: parsed.data.query });
+        },
+      );
+      const items = resolved.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
+      if (validationRepository !== undefined)
+        await Promise.all(
+          items.map((item) =>
+            validationRepository.save({
+              passed: item.passed,
+              query: parsed.data.query,
+              report: item,
+              sourceId: item.sourceId,
+            }),
+          ),
+        );
+      return context.json({
+        failedSourceIds: resolved.flatMap((result, index) =>
+          result.status === "rejected" && descriptors[index] !== undefined
+            ? [descriptors[index].id]
+            : [],
+        ),
+        items,
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          event: "source_validation_error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The source runtime is unavailable.",
+      );
+    }
+  });
+  app.get("/api/sources/validations", async (context) => {
+    if (validationRepository === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "Validation persistence is not configured.",
+      );
+    const sourceId = context.req.query("source")?.trim() || undefined;
+    const rawLimit = context.req.query("limit");
+    const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+    if (
+      limit !== undefined &&
+      (!Number.isInteger(limit) || limit < 1 || limit > 200)
+    )
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid validation limit.",
+      );
+    try {
+      const items = await validationRepository.list(sourceId, limit);
+      return context.json({
+        items: items.map((item) => ({
+          ...item,
+          checkedAt: item.checkedAt.toISOString(),
+        })),
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          event: "source_validation_history_error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "Validation persistence is unavailable.",
+      );
+    }
+  });
+  app.get("/api/manga/:provider/:id/alternatives", async (context) => {
+    const provider = context.req.param("provider");
+    if (provider === "mangadex")
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Alternative sources require a dynamic source reference.",
+      );
+    const current = await resolveSource(context, sources, provider);
+    if (current instanceof Response) return current;
+    if (sources === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The source runtime is not configured.",
+      );
+    try {
+      const details = await current.details(context.req.param("id"));
+      const candidates = await sources.list([current.descriptor.language]);
+      const resolved = await mapWithConcurrency(
+        candidates.filter((candidate) => candidate.id !== provider),
+        3,
+        async (candidate) => {
+          const source = await sources.get(candidate.id);
+          if (!source) throw new Error("Source unavailable.");
+          const search = await source.search({ query: details.title, page: 1 });
+          return search.items.filter((item) =>
+            equivalentTitle(item.title, details.title),
+          );
+        },
+      );
+      return context.json({
+        items: resolved.flatMap((result) =>
+          result.status === "fulfilled" ? result.value : [],
+        ),
+      });
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          event: "source_alternatives_error",
+          message: error instanceof Error ? error.message : "Unknown error",
+          sourceId: provider,
         }),
       );
       return jsonError(
@@ -606,5 +1036,74 @@ async function mapWithConcurrency<T, R>(
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
+  );
+}
+
+function equivalentTitle(left: string, right: string): boolean {
+  return normalizedTitle(left) === normalizedTitle(right);
+}
+
+function groupSourceSearchItems(items: SourceMangaSummary[]) {
+  const groups = new Map<
+    string,
+    {
+      coverUrl?: string;
+      description?: string;
+      items: SourceMangaSummary[];
+      key: string;
+      tags: string[];
+      title: string;
+    }
+  >();
+  for (const item of items) {
+    const titleKey = normalizedTitle(item.title);
+    const current = groups.get(titleKey);
+    if (current === undefined) {
+      groups.set(titleKey, {
+        coverUrl: item.coverUrl,
+        description: item.description,
+        items: [item],
+        key: titleKey,
+        tags: item.tags,
+        title: item.title,
+      });
+      continue;
+    }
+    if (hasSharedTag(current.tags, item.tags)) {
+      current.items.push(item);
+      continue;
+    }
+    groups.set(`${titleKey}:${item.source.sourceId}:${item.source.externalId}`, {
+      coverUrl: item.coverUrl,
+      description: item.description,
+      items: [item],
+      key: `${titleKey}:${item.source.sourceId}:${item.source.externalId}`,
+      tags: item.tags,
+      title: item.title,
+    });
+  }
+  return [...groups.values()];
+}
+
+function hasSharedTag(left: string[], right: string[]) {
+  const leftTags = new Set(left.map(normalizedTitle));
+  return right.some((tag) => leftTags.has(normalizedTitle(tag)));
+}
+
+function normalizedTitle(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function validSourceRef(value: { externalId: string; sourceId: string }) {
+  return (
+    value.externalId.trim().length > 0 &&
+    value.externalId.length <= 500 &&
+    value.sourceId.trim().length > 0 &&
+    value.sourceId.length <= 500
   );
 }

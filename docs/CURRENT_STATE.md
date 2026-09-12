@@ -67,6 +67,39 @@ Last completed setup step: TASK-011 — First extension runtime adapter.
 - Validação persistente ao vivo de busca, detalhes, capítulos e páginas em uma fonte de fixture.
 - Scanner catalog-wide e estratégia de atualização/cache do catálogo ainda não foram implementados.
 
+O scanner catalog-wide deterministico foi implementado em `packages/sources`: ele compara o catalogo Project Nox com as fontes carregadas no Suwayomi e classifica cada fonte como compativel, ausente no runtime ou com versao divergente.
+
+A persistencia dos relatorios e a validacao ao vivo das operacoes de busca, detalhes, capitulos e paginas ainda permanecem pendentes.
+
+Validador de capacidades implementado em `packages/sources`: executa probes isoladas e sequenciais de busca, detalhes, capitulos e paginas, com timeout, IDs descobertos e estados passed/failed/skipped.
+
+Rota `GET /api/sources/validate?q=...` integrada para validar uma fonte especifica ou todas as fontes `pt-BR`/`en` com concorrencia limitada e falhas parciais.
+
+Persistencia opcional de validacoes adicionada ao PostgreSQL/Drizzle (`source_runtime_validations`), com repositorio e rota `GET /api/sources/validations` para consultar o historico.
+
+Rota `GET /api/manga/:source/:id/alternatives` adicionada para procurar o mesmo titulo em outras fontes do mesmo idioma, com comparacao conservadora de titulo e resultados com proveniencia explicita.
+
+Preferencias persistentes de fontes e idiomas adicionadas ao contrato, banco e API autenticada (`GET/PUT /api/source-preferences`), com defaults `pt-BR` e `en`.
+
+Store de catalogo Project Nox implementado com TTL, deduplicacao de refresh concorrente e fallback para o ultimo catalogo valido marcado como stale.
+
+Busca web agora permite escolher idioma preferido (`pt-BR` ou `en`), persiste a escolha localmente e filtra/recarrega as fontes disponiveis conforme a preferencia.
+
+Quando autenticado, `GET /api/sources` aplica as preferencias persistentes do usuario para ordenar idiomas e limitar fontes habilitadas.
+
+Frontend agora oferece entrada/cadastro basico, guarda o JWT localmente e envia a sessao ao carregar fontes, habilitando o uso pratico das preferencias por conta.
+
+Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir o titulo diretamente na fonte escolhida.
+
+- Busca global consolida resultados com a mesma evidência de título normalizado e tag compartilhada em um único cartão, preservando os botões explícitos para cada fonte disponível.
+- O cliente Suwayomi deduplica requisições simultâneas de detalhes/capítulos para o mesmo mangá por 30 segundos e elevou o timeout padrão para 30 segundos; a consulta de fontes alternativas na página de detalhes passou a ser opcional, evitando carga concorrente desnecessária.
+- Favoritos, histórico e progresso autenticados agora aceitam referências neutras de fonte (`sourceId` + `externalId`), inclusive identificadores não UUID devolvidos pelo Suwayomi.
+- A web permite favoritar na página de detalhes, sincroniza a última página lida e expõe uma biblioteca com favoritos e links para retomar a leitura.
+- Migration `0006_source_neutral_persistence` aplicada ao PostgreSQL local para converter os IDs persistidos de biblioteca e histórico em texto.
+- A biblioteca resolve capas e títulos pelas referências de fonte salvas; o leitor vertical registra somente a página efetivamente visível e retorna a ela ao retomar a leitura.
+- A página inicial expõe “Mais lidos” e “Lançamentos recentes” por meio das operações normalizadas `POPULAR` e `LATEST` do Suwayomi, com origem explícita e cache de cinco minutos por fonte/operação.
+- Uma indisponibilidade transitória ao resolver páginas de capítulo recebe uma segunda tentativa antes de ser exposta como conteúdo indisponível.
+
 ## Current phase
 
 Source-engine migration started; existing MangaDex flow remains the legacy adapter until subsequent source tasks.
@@ -78,6 +111,10 @@ Próxima prioridade: validação ao vivo persistente do sidecar e scanner catalo
 See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
+
+## Consolidated manga status
+
+The manga source engine, runtime validation, catalog resilience, source fallback, account preferences, and web authentication flows are implemented and covered by automated checks. Remaining operational work requires a live PostgreSQL migration and a configured Suwayomi instance; anime features remain intentionally out of scope.
 
 Authentication is enabled only when both `DATABASE_URL` and `AUTH_JWT_SECRET` are configured; migrations require a running PostgreSQL instance and were not applied in this workspace.
 

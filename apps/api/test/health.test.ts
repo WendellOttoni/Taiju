@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { SourceSummary } from "@taiju/contracts";
 import {
   SuwayomiClientError,
   SuwayomiContentUnavailableError,
@@ -91,6 +92,244 @@ describe("GET /health", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       items: [{ id: "example.source:1", language: "en" }],
+    });
+  });
+
+  test("validates a selected source through all normalized capabilities", async () => {
+    const testApp = createApp({
+      sources: {
+        list: async () => [
+          {
+            capabilities: ["search", "details", "chapters", "pages"],
+            compatible: true,
+            id: "fixture:1",
+            language: "en",
+            name: "Fixture",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "fixture",
+            },
+            version: "1.0",
+          },
+        ],
+        get: async () => ({
+          descriptor: {
+            capabilities: ["search", "details", "chapters", "pages"],
+            compatible: true,
+            id: "fixture:1",
+            language: "en",
+            name: "Fixture",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "fixture",
+            },
+            version: "1.0",
+          },
+          search: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [
+              {
+                source: { externalId: "m1", sourceId: "fixture:1" },
+                tags: [],
+                title: "Fixture Manga",
+              },
+            ],
+          }),
+          details: async () => ({
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "m1", sourceId: "fixture:1" },
+            tags: [],
+            title: "Fixture Manga",
+          }),
+          chapters: async () => ({
+            items: [
+              {
+                chapter: "1",
+                manga: { externalId: "m1", sourceId: "fixture:1" },
+                source: { externalId: "c1", sourceId: "fixture:1" },
+                title: "Chapter 1",
+              },
+            ],
+          }),
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "c1", sourceId: "fixture:1" },
+          }),
+        }),
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/sources/validate?q=fixture&source=fixture:1",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      failedSourceIds: [],
+      items: [{ sourceId: "fixture:1", passed: true }],
+    });
+  });
+
+  test("returns conservative equivalent-source alternatives", async () => {
+    const descriptor = (id: string, name: string): SourceSummary => ({
+      capabilities: ["search", "details", "chapters", "pages"],
+      compatible: true,
+      id,
+      language: "en",
+      name,
+      provenance: {
+        catalogUrl: "https://catalog.example/index.pb",
+        packageName: id,
+      },
+      version: "1.0",
+    });
+    const testApp = createApp({
+      sources: {
+        list: async () => [
+          descriptor("source:1", "Primary"),
+          descriptor("source:2", "Mirror"),
+        ],
+        get: async (id) => ({
+          descriptor: descriptor(id, id === "source:1" ? "Primary" : "Mirror"),
+          search: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items:
+              id === "source:2"
+                ? [
+                    {
+                      source: { externalId: "m2", sourceId: id },
+                      tags: [],
+                      title: "Same Manga",
+                    },
+                    {
+                      source: { externalId: "other", sourceId: id },
+                      tags: [],
+                      title: "Different Manga",
+                    },
+                  ]
+                : [],
+          }),
+          details: async () => ({
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "m1", sourceId: id },
+            tags: [],
+            title: "Same Manga",
+          }),
+          chapters: async () => ({ items: [] }),
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "c1", sourceId: id },
+          }),
+        }),
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/source%3A1/m1/alternatives",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      items: [
+        {
+          source: { externalId: "m2", sourceId: "source:2" },
+          tags: [],
+          title: "Same Manga",
+        },
+      ],
+    });
+  });
+
+  test("groups cross-source discovery only when title and tags agree", async () => {
+    const descriptor = (id: string): SourceSummary => ({
+      capabilities: ["search"],
+      compatible: true,
+      id,
+      language: "en",
+      name: id,
+      provenance: { catalogUrl: "https://catalog.example/index.pb", packageName: id },
+      version: "1.0",
+    });
+    const testApp = createApp({
+      sources: {
+        get: async (id) => ({
+          chapters: async () => ({ items: [] }),
+          descriptor: descriptor(id),
+          details: async () => ({
+            alternativeTitles: [], artists: [], authors: [],
+            source: { externalId: "manga", sourceId: id }, tags: ["Action"], title: "Same Manga",
+          }),
+          pages: async () => ({ pageUrls: ["https://images.example/1.jpg"], source: { externalId: "chapter", sourceId: id } }),
+          search: async () => ({
+            failedSourceIds: [], hasNextPage: false,
+            items: [{ source: { externalId: `manga-${id}`, sourceId: id }, tags: ["Action"], title: "Same Manga" }],
+          }),
+        }),
+        list: async () => [descriptor("source:1"), descriptor("source:2")],
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/search?q=Same&source=all",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      items: [{ items: [{ source: { sourceId: "source:1" } }, { source: { sourceId: "source:2" } }], title: "Same Manga" }],
+    });
+  });
+
+  test("returns normalized popular source discovery without a fixed source", async () => {
+    const testApp = createApp({
+      sources: {
+        get: async () => ({
+          chapters: async () => ({ items: [] }),
+          descriptor: {
+            capabilities: ["search"],
+            compatible: true,
+            id: "source:1",
+            language: "en",
+            name: "Example",
+            provenance: {
+              catalogUrl: "https://catalog.example/index.pb",
+              packageName: "example.source",
+            },
+            version: "1.0",
+          },
+          details: async () => ({
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "m1", sourceId: "source:1" },
+            tags: ["Action"],
+            title: "Popular Manga",
+          }),
+          discover: async ({ kind }) => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [
+              {
+                source: { externalId: "m1", sourceId: "source:1" },
+                tags: ["Action"],
+                title: kind === "popular" ? "Popular Manga" : "Latest Manga",
+              },
+            ],
+          }),
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "chapter", sourceId: "source:1" },
+          }),
+          search: async () => ({ failedSourceIds: [], hasNextPage: false, items: [] }),
+        }),
+        list: async () => [],
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/discover?kind=popular&source=source%3A1",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      items: [{ title: "Popular Manga" }],
     });
   });
 

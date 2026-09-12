@@ -14,6 +14,17 @@ export {
   decodeProjectNoxCatalog,
   SourceCatalogDecodeError,
 } from "./catalog-decoder";
+export type {
+  CatalogScanReport,
+  CatalogSourceScan,
+  CatalogSourceStatus,
+} from "./catalog-scanner";
+export { scanProjectNoxCatalog } from "./catalog-scanner";
+export type {
+  CatalogStoreOptions,
+  CatalogStoreSnapshot,
+} from "./catalog-store";
+export { ProjectNoxCatalogStore } from "./catalog-store";
 export type { RuntimeProcess, SourceRuntimeOptions } from "./jvm-runtime";
 export {
   JvmSourceRuntime,
@@ -38,6 +49,13 @@ export {
   encodeRuntimeRequest,
   SourceRuntimeProtocolError,
 } from "./runtime-protocol";
+export type {
+  RuntimeCapability,
+  RuntimeCapabilityResult,
+  RuntimeValidationOptions,
+  RuntimeValidationReport,
+} from "./runtime-validator";
+export { validateReadingSource } from "./runtime-validator";
 export type { SourceDirectory } from "./source-directory";
 export { SuwayomiSourceDirectory } from "./source-directory";
 export type {

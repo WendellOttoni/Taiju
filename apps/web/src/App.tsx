@@ -1,21 +1,27 @@
 import {
   type SourceChapter,
-  sourceChapterListSchema,
   type SourceMangaDetails,
+  type SourceMangaGroup,
   type SourceMangaSummary,
-  sourceMangaDetailsSchema,
-  sourceReaderChapterSchema,
-  sourceSearchResponseSchema,
-  sourceListResponseSchema,
   type SourceReaderChapter,
   type SourceSummary,
+  sourceChapterListSchema,
+  sourceGroupedSearchResponseSchema,
+  sourceLibraryResponseSchema,
+  sourceListResponseSchema,
+  sourceMangaDetailsSchema,
+  sourceReaderChapterSchema,
+  sourceReadingHistoryResponseSchema,
+  sourceSearchResponseSchema,
 } from "@taiju/contracts";
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const debounceMs = 350;
 const readerPreferencesKey = "taiju:reader-preferences";
 const sourcePreferenceKey = "taiju:source-preference";
+const languagePreferenceKey = "taiju:language-preference";
+const authTokenKey = "taiju:auth-token";
 
 type ReaderPreferences = {
   imageFit: "contain" | "width";
@@ -47,6 +53,11 @@ function loadReaderPreferences(): ReaderPreferences {
   }
 }
 
+function authenticatedHeaders() {
+  const token = localStorage.getItem(authTokenKey);
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
+}
+
 export function App() {
   const readerMatch = window.location.pathname.match(
     /^\/reader\/([^/]+)\/([^/]+)$/,
@@ -54,44 +65,82 @@ export function App() {
   if (readerMatch !== null) {
     const [, provider, id] = readerMatch;
     if (provider !== undefined && id !== undefined)
-      return <ReaderPage provider={decodeURIComponent(provider)} id={decodeURIComponent(id)} />;
+      return (
+        <ReaderPage
+          provider={decodeURIComponent(provider)}
+          id={decodeURIComponent(id)}
+        />
+      );
   }
-  const match = window.location.pathname.match(
-    /^\/manga\/([^/]+)\/([^/]+)$/,
-  );
+  if (window.location.pathname === "/library") return <LibraryPage />;
+  const match = window.location.pathname.match(/^\/manga\/([^/]+)\/([^/]+)$/);
   if (match === null) return <SearchPage />;
   const [, provider, id] = match;
   if (provider === undefined || id === undefined) return <SearchPage />;
-  return <DetailsPage provider={decodeURIComponent(provider)} id={decodeURIComponent(id)} />;
+  return (
+    <DetailsPage
+      provider={decodeURIComponent(provider)}
+      id={decodeURIComponent(id)}
+    />
+  );
 }
 
 function SearchPage() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SourceMangaSummary[]>([]);
+  const [results, setResults] = useState<SourceMangaGroup[]>([]);
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [sourceId, setSourceId] = useState(
     () => localStorage.getItem(sourcePreferenceKey) ?? "",
   );
+  const [preferredLanguage, setPreferredLanguage] = useState<"pt-BR" | "en">(
+    () =>
+      localStorage.getItem(languagePreferenceKey) === "en" ? "en" : "pt-BR",
+  );
   const [failedSourceIds, setFailedSourceIds] = useState<string[]>([]);
+  const [popular, setPopular] = useState<SourceMangaGroup[]>([]);
+  const [latest, setLatest] = useState<SourceMangaGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/sources?language=pt-BR&language=en", {
-      signal: controller.signal,
-    })
+    void fetch(
+      `/api/sources?language=${encodeURIComponent(preferredLanguage)}`,
+      {
+        headers: (() => {
+          const token = localStorage.getItem(authTokenKey);
+          return token ? { Authorization: `Bearer ${token}` } : undefined;
+        })(),
+        signal: controller.signal,
+      },
+    )
       .then(async (response) => {
-        if (!response.ok) throw new Error("As fontes não estão disponíveis agora.");
+        if (!response.ok)
+          throw new Error("As fontes não estão disponíveis agora.");
         return sourceListResponseSchema.parse(await response.json());
       })
       .then((payload) => setSources(payload.items))
       .catch((reason) => {
         if (!controller.signal.aborted)
-          setError(reason instanceof Error ? reason.message : "Não foi possível carregar as fontes.");
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível carregar as fontes.",
+          );
       });
     return () => controller.abort();
-  }, []);
+  }, [preferredLanguage]);
+
+  useEffect(() => {
+    localStorage.setItem(languagePreferenceKey, preferredLanguage);
+    setSourceId((current) =>
+      current !== "all" &&
+      sources.length > 0 &&
+      !sources.some((source) => source.id === current)
+        ? ""
+        : current,
+    );
+  }, [preferredLanguage, sources]);
 
   useEffect(() => {
     if (sourceId === "") localStorage.removeItem(sourcePreferenceKey);
@@ -118,9 +167,25 @@ function SearchPage() {
           { signal: controller.signal },
         );
         if (!response.ok) throw new Error("A busca não está disponível agora.");
-        const payload = sourceSearchResponseSchema.parse(await response.json());
-        setResults(payload.items);
-        setFailedSourceIds(payload.failedSourceIds);
+        const json = await response.json();
+        if (sourceId === "all") {
+          const payload = sourceGroupedSearchResponseSchema.parse(json);
+          setResults(payload.items);
+          setFailedSourceIds(payload.failedSourceIds);
+        } else {
+          const payload = sourceSearchResponseSchema.parse(json);
+          setResults(
+            payload.items.map((item) => ({
+              coverUrl: item.coverUrl,
+              description: item.description,
+              items: [item],
+              key: `${item.source.sourceId}:${item.source.externalId}`,
+              tags: item.tags,
+              title: item.title,
+            })),
+          );
+          setFailedSourceIds(payload.failedSourceIds);
+        }
       } catch (reason) {
         if (!controller.signal.aborted) {
           setResults([]);
@@ -141,9 +206,46 @@ function SearchPage() {
     };
   }, [query, sourceId]);
 
+  useEffect(() => {
+    if (sources.length === 0) return;
+    const controller = new AbortController();
+    const selectedSource = sourceId === "" ? "all" : sourceId;
+    const load = async (kind: "popular" | "latest") => {
+      const response = await fetch(
+        `/api/manga/discover?kind=${kind}&source=${encodeURIComponent(selectedSource)}`,
+        { signal: controller.signal },
+      );
+      if (!response.ok) throw new Error("Discovery is unavailable.");
+      const json = await response.json();
+      if (selectedSource === "all")
+        return sourceGroupedSearchResponseSchema.parse(json).items;
+      return sourceSearchResponseSchema.parse(json).items.map((item) => ({
+        coverUrl: item.coverUrl,
+        description: item.description,
+        items: [item],
+        key: `${item.source.sourceId}:${item.source.externalId}`,
+        tags: item.tags,
+        title: item.title,
+      }));
+    };
+    void Promise.all([load("popular"), load("latest")])
+      .then(([popularItems, latestItems]) => {
+        setPopular(popularItems);
+        setLatest(latestItems);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setPopular([]);
+          setLatest([]);
+        }
+      });
+    return () => controller.abort();
+  }, [sourceId, sources]);
+
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-16 text-zinc-50">
       <section className="mx-auto max-w-6xl">
+        <AuthPanel />
         <p className="text-sm font-medium tracking-[0.3em] text-amber-400 uppercase">
           Taiju
         </p>
@@ -165,6 +267,21 @@ function SearchPage() {
             placeholder="Ex.: Berserk"
             className="w-full rounded-xl border border-zinc-700 bg-zinc-900 py-4 pr-4 pl-12 text-lg outline-none placeholder:text-zinc-500 focus:border-amber-400"
           />
+        </label>
+        <label className="mt-4 block max-w-2xl">
+          <span className="mb-2 block text-sm text-zinc-400">
+            Idioma preferido
+          </span>
+          <select
+            value={preferredLanguage}
+            onChange={(event) =>
+              setPreferredLanguage(event.target.value === "en" ? "en" : "pt-BR")
+            }
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-amber-400"
+          >
+            <option value="pt-BR">Português (Brasil)</option>
+            <option value="en">English</option>
+          </select>
         </label>
         <label className="mt-4 block max-w-2xl">
           <span className="mb-2 block text-sm text-zinc-400">Fonte</span>
@@ -194,20 +311,35 @@ function SearchPage() {
         )}
         {failedSourceIds.length > 0 && (
           <p className="mt-4 text-sm text-amber-300" role="status">
-            Algumas fontes não responderam; os demais resultados continuam disponíveis.
+            Algumas fontes não responderam; os demais resultados continuam
+            disponíveis.
           </p>
+        )}
+        {query.trim() === "" && (
+          <>
+            <DiscoveryShelf
+              items={popular}
+              sources={sources}
+              title="Mais lidos"
+            />
+            <DiscoveryShelf
+              items={latest}
+              sources={sources}
+              title="Lançamentos recentes"
+            />
+          </>
         )}
         {!isLoading &&
           !error &&
-          query.trim() !== "" && sourceId !== "" &&
+          query.trim() !== "" &&
+          sourceId !== "" &&
           results.length === 0 && (
             <p className="mt-8 text-zinc-300">Nenhum título encontrado.</p>
           )}
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {results.map((manga) => (
-            <a
-              key={`${manga.source.sourceId}:${manga.source.externalId}`}
-              href={`/manga/${encodeURIComponent(manga.source.sourceId)}/${encodeURIComponent(manga.source.externalId)}`}
+            <article
+              key={manga.key}
               className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
             >
               <div className="aspect-[2/3] bg-zinc-800">
@@ -227,10 +359,369 @@ function SearchPage() {
                     {manga.tags.join(" · ")}
                   </p>
                 )}
+                <p className="mt-3 text-xs text-zinc-400">
+                  {manga.items.length === 1
+                    ? "Fonte disponÃ­vel"
+                    : `${manga.items.length} fontes disponÃ­veis`}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {manga.items.map((item) => {
+                    const source = sources.find(
+                      (candidate) => candidate.id === item.source.sourceId,
+                    );
+                    return (
+                      <a
+                        key={`${item.source.sourceId}:${item.source.externalId}`}
+                        href={`/manga/${encodeURIComponent(item.source.sourceId)}/${encodeURIComponent(item.source.externalId)}`}
+                        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:border-amber-400 hover:text-amber-300"
+                      >
+                        {source?.name ?? "Abrir fonte"}
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
-            </a>
+            </article>
           ))}
         </div>
+      </section>
+    </main>
+  );
+}
+
+function DiscoveryShelf({
+  items,
+  sources,
+  title,
+}: {
+  items: SourceMangaGroup[];
+  sources: SourceSummary[];
+  title: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="mt-12">
+      <h2 className="text-2xl font-bold">{title}</h2>
+      <div className="mt-4 flex gap-4 overflow-x-auto pb-3">
+        {items.slice(0, 12).map((manga) => (
+          <article
+            className="w-36 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
+            key={manga.key}
+          >
+            <div className="aspect-[2/3] bg-zinc-800">
+              {manga.coverUrl && (
+                <img
+                  alt={`Capa de ${manga.title}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  src={manga.coverUrl}
+                />
+              )}
+            </div>
+            <div className="p-3">
+              <h3 className="line-clamp-2 text-sm font-semibold">{manga.title}</h3>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {manga.items.map((item) => {
+                  const source = sources.find(
+                    (candidate) => candidate.id === item.source.sourceId,
+                  );
+                  return (
+                    <a
+                      className="rounded border border-zinc-700 px-1.5 py-1 text-[10px] hover:border-amber-400"
+                      href={`/manga/${encodeURIComponent(item.source.sourceId)}/${encodeURIComponent(item.source.externalId)}`}
+                      key={`${item.source.sourceId}:${item.source.externalId}`}
+                    >
+                      {source?.name ?? "Fonte"}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AuthPanel() {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(
+    () => localStorage.getItem(authTokenKey) !== null,
+  );
+
+  if (authenticated)
+    return (
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-emerald-900 bg-emerald-950/40 px-4 py-3 text-sm">
+        <span className="text-emerald-200">Sessão ativa</span>
+        <div className="flex gap-4">
+          <a className="text-emerald-300 underline" href="/library">
+            Minha biblioteca
+          </a>
+          <button
+            className="text-emerald-300 underline"
+            onClick={() => {
+              localStorage.removeItem(authTokenKey);
+              setAuthenticated(false);
+            }}
+            type="button"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    );
+
+  return (
+    <form
+      className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setMessage(null);
+        try {
+          const response = await fetch(`/api/auth/${mode}`, {
+            body: JSON.stringify({ email, password }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          });
+          const payload = (await response.json()) as {
+            token?: string;
+            error?: { message?: string };
+          };
+          if (!response.ok || !payload.token)
+            throw new Error(
+              payload.error?.message ?? "Não foi possível autenticar.",
+            );
+          localStorage.setItem(authTokenKey, payload.token);
+          setAuthenticated(true);
+          setPassword("");
+          window.location.reload();
+        } catch (error) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Não foi possível autenticar.",
+          );
+        }
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          aria-label="E-mail"
+          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="E-mail"
+          required
+          type="email"
+          value={email}
+        />
+        <input
+          aria-label="Senha"
+          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Senha"
+          required
+          type="password"
+          value={password}
+        />
+        <button
+          className="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-zinc-950"
+          type="submit"
+        >
+          {mode === "login" ? "Entrar" : "Cadastrar"}
+        </button>
+        <button
+          className="text-sm text-zinc-400 underline"
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+          type="button"
+        >
+          {mode === "login" ? "Criar conta" : "Já tenho conta"}
+        </button>
+      </div>
+      {message && (
+        <p className="mt-2 text-sm text-red-300" role="alert">
+          {message}
+        </p>
+      )}
+    </form>
+  );
+}
+
+function LibraryPage() {
+  const [favorites, setFavorites] = useState<
+    Array<{ manga: { externalId: string; sourceId: string } }>
+  >([]);
+  const [history, setHistory] = useState<
+    Array<{
+      chapter: { externalId: string; sourceId: string };
+      manga: { externalId: string; sourceId: string };
+      page: number;
+    }>
+  >([]);
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [covers, setCovers] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!localStorage.getItem(authTokenKey)) {
+      setError("Entre em sua conta para ver a biblioteca.");
+      return;
+    }
+    const controller = new AbortController();
+    void Promise.all([
+      fetch("/api/source-library", {
+        headers: authenticatedHeaders(),
+        signal: controller.signal,
+      }),
+      fetch("/api/source-reading-history", {
+        headers: authenticatedHeaders(),
+        signal: controller.signal,
+      }),
+    ])
+      .then(async ([libraryResponse, historyResponse]) => {
+        if (!libraryResponse.ok || !historyResponse.ok)
+          throw new Error("Não foi possível carregar sua biblioteca.");
+        const library = sourceLibraryResponseSchema.parse(
+          await libraryResponse.json(),
+        );
+        const savedHistory = sourceReadingHistoryResponseSchema.parse(
+          await historyResponse.json(),
+        );
+        setFavorites(library.items);
+        setHistory(savedHistory.items);
+        const references = [
+          ...library.items.map((item) => item.manga),
+          ...savedHistory.items.map((item) => item.manga),
+        ];
+        const uniqueReferences = Array.from(
+          new Map(
+            references.map((reference) => [
+              `${reference.sourceId}:${reference.externalId}`,
+              reference,
+            ]),
+          ).values(),
+        );
+        const resolvedTitles = await Promise.allSettled(
+          uniqueReferences.map(async (reference) => {
+            const response = await fetch(
+              `/api/manga/${encodeURIComponent(reference.sourceId)}/${encodeURIComponent(reference.externalId)}`,
+              { signal: controller.signal },
+            );
+            if (!response.ok) return undefined;
+            const manga = sourceMangaDetailsSchema.parse(await response.json());
+            return {
+              coverUrl: manga.coverUrl,
+              key: `${reference.sourceId}:${reference.externalId}`,
+              title: manga.title,
+            };
+          }),
+        );
+        setTitles(
+          Object.fromEntries(
+            resolvedTitles.flatMap((result) =>
+              result.status === "fulfilled" && result.value !== undefined
+                ? [[result.value.key, result.value.title]]
+                : [],
+            ),
+          ),
+        );
+        setCovers(
+          Object.fromEntries(
+            resolvedTitles.flatMap((result) =>
+              result.status === "fulfilled" &&
+              result.value !== undefined &&
+              result.value.coverUrl !== undefined
+                ? [[result.value.key, result.value.coverUrl]]
+                : [],
+            ),
+          ),
+        );
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível carregar sua biblioteca.",
+          );
+      });
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-zinc-950 px-6 py-12 text-zinc-50">
+      <section className="mx-auto max-w-4xl">
+        <a href="/" className="text-sm text-amber-400">
+          ← Voltar à busca
+        </a>
+        <h1 className="mt-5 text-4xl font-bold">Minha biblioteca</h1>
+        {error && <p className="mt-6 text-red-300" role="alert">{error}</p>}
+        <section className="mt-10">
+          <h2 className="text-2xl font-bold">Continuar lendo</h2>
+          <div className="mt-4 grid gap-3">
+            {history.length === 0 ? (
+              <p className="text-zinc-400">Ainda não há leitura sincronizada.</p>
+            ) : (
+              history.map((item) => (
+                <a
+                  className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-amber-400"
+                  href={`/reader/${encodeURIComponent(item.chapter.sourceId)}/${encodeURIComponent(item.chapter.externalId)}?manga=${encodeURIComponent(item.manga.externalId)}&page=${item.page}`}
+                  key={`${item.manga.sourceId}:${item.manga.externalId}`}
+                >
+                  {covers[`${item.manga.sourceId}:${item.manga.externalId}`] && (
+                    <img
+                      alt=""
+                      className="mr-4 h-24 w-16 shrink-0 rounded object-cover"
+                      src={covers[`${item.manga.sourceId}:${item.manga.externalId}`]}
+                    />
+                  )}
+                  <p className="font-medium">
+                    {titles[`${item.manga.sourceId}:${item.manga.externalId}`] ??
+                      item.manga.externalId}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-400">Página {item.page}</p>
+                  <p className="hidden">
+                    {item.manga.sourceId} · página {item.page}
+                  </p>
+                </a>
+              ))
+            )}
+          </div>
+        </section>
+        <section className="mt-10">
+          <h2 className="text-2xl font-bold">Favoritos</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {favorites.length === 0 ? (
+              <p className="text-zinc-400">Nenhum favorito salvo ainda.</p>
+            ) : (
+              favorites.map((item) => (
+                <a
+                  className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-amber-400"
+                  href={`/manga/${encodeURIComponent(item.manga.sourceId)}/${encodeURIComponent(item.manga.externalId)}`}
+                  key={`${item.manga.sourceId}:${item.manga.externalId}`}
+                >
+                  {covers[`${item.manga.sourceId}:${item.manga.externalId}`] && (
+                    <img
+                      alt=""
+                      className="mr-4 h-24 w-16 shrink-0 rounded object-cover"
+                      src={covers[`${item.manga.sourceId}:${item.manga.externalId}`]}
+                    />
+                  )}
+                  <p className="font-medium">
+                    {titles[`${item.manga.sourceId}:${item.manga.externalId}`] ??
+                      item.manga.externalId}
+                  </p>
+                  <p className="hidden">
+                    {item.manga.sourceId}
+                  </p>
+                </a>
+              ))
+            )}
+          </div>
+        </section>
       </section>
     </main>
   );
@@ -239,14 +730,20 @@ function SearchPage() {
 function DetailsPage({ provider, id }: { provider: string; id: string }) {
   const [manga, setManga] = useState<SourceMangaDetails | null>(null);
   const [chapters, setChapters] = useState<SourceChapter[]>([]);
+  const [alternatives, setAlternatives] = useState<SourceMangaSummary[]>([]);
+  const [loadAlternatives, setLoadAlternatives] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch(`/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`,
+          {
+            signal: controller.signal,
+          },
+        );
         if (!response.ok)
           throw new Error("Não foi possível carregar os detalhes.");
         setManga(sourceMangaDetailsSchema.parse(await response.json()));
@@ -262,12 +759,46 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
     return () => controller.abort();
   }, [id, provider]);
   useEffect(() => {
+    if (!localStorage.getItem(authTokenKey)) return;
+    void fetch("/api/source-library", { headers: authenticatedHeaders() })
+      .then((response) => (response.ok ? response.json() : { items: [] }))
+      .then((payload) =>
+        setIsFavorite(
+          (payload.items as Array<{ manga: { externalId: string; sourceId: string } }>).some(
+            (item) =>
+              item.manga.sourceId === provider && item.manga.externalId === id,
+          ),
+        ),
+      )
+      .catch(() => undefined);
+  }, [id, provider]);
+  useEffect(() => {
+    if (provider === "mangadex" || !loadAlternatives) return;
+    const controller = new AbortController();
+    void fetch(
+      `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/alternatives`,
+      { signal: controller.signal },
+    )
+      .then(async (response) => {
+        if (!response.ok) return { items: [] };
+        return (await response.json()) as { items: SourceMangaSummary[] };
+      })
+      .then((payload) => setAlternatives(payload.items))
+      .catch(() => {
+        if (!controller.signal.aborted) setAlternatives([]);
+      });
+    return () => controller.abort();
+  }, [id, loadAlternatives, provider]);
+  useEffect(() => {
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch(`/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/chapters`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/chapters`,
+          {
+            signal: controller.signal,
+          },
+        );
         if (!response.ok)
           throw new Error("Não foi possível carregar os capítulos.");
         setChapters(sourceChapterListSchema.parse(await response.json()).items);
@@ -285,7 +816,14 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
   if (error)
     return (
       <main className="min-h-screen bg-zinc-950 p-8 text-red-300" role="alert">
-        {error}
+        <p>{error}</p>
+        <button
+          className="mt-4 rounded border border-red-300 px-3 py-2 text-sm"
+          onClick={() => window.location.reload()}
+          type="button"
+        >
+          Tentar novamente
+        </button>
       </main>
     );
   if (manga === null)
@@ -314,6 +852,23 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
             ← Voltar à busca
           </a>
           <h1 className="mt-5 text-4xl font-bold">{manga.title}</h1>
+          {localStorage.getItem(authTokenKey) && (
+            <button
+              className="mt-4 rounded border border-amber-400 px-3 py-2 text-sm text-amber-300"
+              onClick={() => {
+                const method = isFavorite ? "DELETE" : "PUT";
+                void fetch(
+                  `/api/source-library/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`,
+                  { headers: authenticatedHeaders(), method },
+                ).then((response) => {
+                  if (response.ok) setIsFavorite(!isFavorite);
+                });
+              }}
+              type="button"
+            >
+              {isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+            </button>
+          )}
           {manga.alternativeTitles.length > 0 && (
             <p className="mt-2 text-zinc-400">
               {manga.alternativeTitles.join(" · ")}
@@ -327,6 +882,36 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
             <Detail label="Artistas" values={manga.artists} />
             <Detail label="Tags" values={manga.tags} />
           </dl>
+          {provider !== "mangadex" && (
+            <section className="mt-8">
+              <h2 className="text-xl font-bold">Outras fontes</h2>
+              {!loadAlternatives && (
+                <button
+                  className="mt-3 rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:border-amber-400"
+                  onClick={() => setLoadAlternatives(true)}
+                  type="button"
+                >
+                  Procurar este título em outras fontes
+                </button>
+              )}
+              {loadAlternatives && alternatives.length === 0 && (
+                <p className="mt-3 text-sm text-zinc-400">
+                  Nenhuma outra fonte equivalente foi encontrada.
+                </p>
+              )}
+              {alternatives.length > 0 && <div className="mt-3 flex flex-wrap gap-2">
+                {alternatives.map((alternative) => (
+                  <a
+                    className="rounded-lg border border-zinc-700 px-3 py-2 text-sm hover:border-amber-400"
+                    href={`/manga/${encodeURIComponent(alternative.source.sourceId)}/${encodeURIComponent(alternative.source.externalId)}`}
+                    key={`${alternative.source.sourceId}:${alternative.source.externalId}`}
+                  >
+                    {alternative.title} · {alternative.source.sourceId}
+                  </a>
+                ))}
+              </div>}
+            </section>
+          )}
           <section className="mt-10">
             <h2 className="text-2xl font-bold">Capítulos</h2>
             <div className="mt-4 divide-y divide-zinc-800 rounded-xl border border-zinc-800">
@@ -382,7 +967,10 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
     loadReaderPreferences,
   );
   const [pageIndex, setPageIndex] = useState(0);
+  const [lastReadPage, setLastReadPage] = useState<number | null>(null);
+  const resumedPositionKey = useRef<string | null>(null);
   const mangaId = new URLSearchParams(window.location.search).get("manga");
+  const resumePage = Number(new URLSearchParams(window.location.search).get("page"));
   const { imageFit, mode, readingDirection, uiVisible } = preferences;
 
   useEffect(() => {
@@ -390,11 +978,14 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
     void (async () => {
       try {
         setChapter(null);
-        setPageIndex(0);
+        setPageIndex(Number.isInteger(resumePage) && resumePage > 0 ? resumePage - 1 : 0);
         setFailedPages(new Set());
-        const response = await fetch(`/api/chapters/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/pages`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/chapters/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/pages`,
+          {
+            signal: controller.signal,
+          },
+        );
         if (!response.ok)
           throw new Error("Não foi possível preparar o leitor.");
         setChapter(sourceReaderChapterSchema.parse(await response.json()));
@@ -408,14 +999,17 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
       }
     })();
     return () => controller.abort();
-  }, [id, provider]);
+  }, [id, provider, resumePage]);
 
   useEffect(() => {
     if (mangaId === null) return;
     const controller = new AbortController();
-    void fetch(`/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(mangaId)}/chapters`, {
-      signal: controller.signal,
-    })
+    void fetch(
+      `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(mangaId)}/chapters`,
+      {
+        signal: controller.signal,
+      },
+    )
       .then((response) => (response.ok ? response.json() : undefined))
       .then((data) => {
         if (data !== undefined)
@@ -426,7 +1020,8 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   }, [mangaId, provider]);
 
   const currentIndex = siblings.findIndex(
-    (item) => item.source.externalId === id && item.source.sourceId === provider,
+    (item) =>
+      item.source.externalId === id && item.source.sourceId === provider,
   );
   const previous = currentIndex > 0 ? siblings[currentIndex - 1] : undefined;
   const next = currentIndex >= 0 ? siblings[currentIndex + 1] : undefined;
@@ -439,6 +1034,44 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
       if (pageUrl !== undefined) new Image().src = pageUrl;
     }
   }, [chapter, mode, pageIndex]);
+
+  useEffect(() => {
+    if (chapter === null || mode !== "vertical") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+        const page = Number(visible?.target.getAttribute("data-reader-page"));
+        if (Number.isInteger(page) && page > 0) setLastReadPage(page);
+      },
+      { threshold: [0.6] },
+    );
+    document
+      .querySelectorAll<HTMLElement>("[data-reader-page]")
+      .forEach((element) => {
+        observer.observe(element);
+      });
+    return () => observer.disconnect();
+  }, [chapter, mode]);
+
+  useEffect(() => {
+    if (
+      chapter === null ||
+      mode !== "vertical" ||
+      !Number.isInteger(resumePage) ||
+      resumePage < 2
+    )
+      return;
+    const key = `${id}:${resumePage}`;
+    if (resumedPositionKey.current === key) return;
+    resumedPositionKey.current = key;
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`reader-page-${resumePage}`)
+        ?.scrollIntoView({ block: "start" });
+    });
+  }, [chapter, id, mode, resumePage]);
 
   useEffect(() => {
     if (chapter === null || mode !== "paged") return;
@@ -463,6 +1096,30 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
   useEffect(() => {
     localStorage.setItem(readerPreferencesKey, JSON.stringify(preferences));
   }, [preferences]);
+
+  useEffect(() => {
+    if (
+      lastReadPage === null ||
+      mangaId === null ||
+      !localStorage.getItem(authTokenKey)
+    )
+      return;
+    const timeout = window.setTimeout(() => {
+      void fetch("/api/source-reading-progress", {
+        body: JSON.stringify({
+          chapter: { externalId: id, sourceId: provider },
+          manga: { externalId: mangaId, sourceId: provider },
+          page: lastReadPage,
+        }),
+        headers: {
+          ...authenticatedHeaders(),
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+      });
+    }, 750);
+    return () => window.clearTimeout(timeout);
+  }, [id, lastReadPage, mangaId, provider]);
 
   if (error)
     return (
@@ -556,6 +1213,8 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
                 </div>
               ) : (
                 <img
+                  data-reader-page={index + 1}
+                  id={`reader-page-${index + 1}`}
                   key={pageUrl}
                   src={pageUrl}
                   alt={`Página ${index + 1}`}
@@ -564,12 +1223,6 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
                     imageFit === "width"
                       ? "block w-full"
                       : "mx-auto block max-w-full"
-                  }
-                  onLoad={() =>
-                    localStorage.setItem(
-                      `taiju:reader:${id}`,
-                      String(index + 1),
-                    )
                   }
                   onError={() =>
                     setFailedPages((current) => new Set(current).add(index))
@@ -584,10 +1237,13 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
               pageCount={chapter.pageUrls.length}
               failed={failedPages.has(pageIndex)}
               onLoad={() =>
-                localStorage.setItem(
-                  `taiju:reader:${id}`,
-                  String(pageIndex + 1),
-                )
+                {
+                  localStorage.setItem(
+                    `taiju:reader:${id}`,
+                    String(pageIndex + 1),
+                  );
+                  setLastReadPage(pageIndex + 1);
+                }
               }
               onError={() =>
                 setFailedPages((current) => new Set(current).add(pageIndex))

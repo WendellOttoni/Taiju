@@ -19,5 +19,17 @@ export {
   passwordCredentials,
   profiles,
   readingHistory,
+  sourceRuntimeValidations,
+  userSourcePreferences,
   users,
 } from "./schema";
+export {
+  createSourcePreferencesRepository,
+  type SourcePreferencesRepository,
+  type UserSourcePreferences,
+} from "./source-preferences-repository";
+export {
+  createRuntimeValidationRepository,
+  type RuntimeValidationRepository,
+  type RuntimeValidationSnapshot,
+} from "./validation-repository";

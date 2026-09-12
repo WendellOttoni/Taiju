@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -60,7 +62,7 @@ export const libraryEntries = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     mangaProvider: text("manga_provider").notNull(),
-    mangaProviderId: uuid("manga_provider_id").notNull(),
+    mangaProviderId: text("manga_provider_id").notNull(),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -86,9 +88,9 @@ export const readingHistory = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     mangaProvider: text("manga_provider").notNull(),
-    mangaProviderId: uuid("manga_provider_id").notNull(),
+    mangaProviderId: text("manga_provider_id").notNull(),
     chapterProvider: text("chapter_provider").notNull(),
-    chapterProviderId: uuid("chapter_provider_id").notNull(),
+    chapterProviderId: text("chapter_provider_id").notNull(),
     page: text("page").notNull(),
     updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
       .defaultNow()
@@ -106,3 +108,37 @@ export const readingHistory = pgTable(
     ),
   ],
 );
+
+export const sourceRuntimeValidations = pgTable(
+  "source_runtime_validations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sourceId: text("source_id").notNull(),
+    query: text("query").notNull(),
+    passed: boolean("passed").notNull(),
+    report: jsonb("report").notNull(),
+    checkedAt: timestamp("checked_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("source_runtime_validations_source_checked_index").on(
+      table.sourceId,
+      table.checkedAt,
+    ),
+  ],
+);
+
+export const userSourcePreferences = pgTable("user_source_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  preferredLanguages: text("preferred_languages")
+    .array()
+    .notNull()
+    .default(["pt-BR", "en"]),
+  enabledSourceIds: text("enabled_source_ids").array().notNull().default([]),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

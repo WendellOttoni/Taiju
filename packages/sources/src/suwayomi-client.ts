@@ -45,14 +45,28 @@ export class SuwayomiContentUnavailableError extends SuwayomiClientError {
 }
 export class SuwayomiRuntimeClient {
   private readonly baseUrl: string;
+  private readonly discoveryCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      value: Promise<{ hasNextPage: boolean; items: SuwayomiManga[] }>;
+    }
+  >();
   private readonly fetcher: NonNullable<SuwayomiClientOptions["fetch"]>;
   private readonly timeoutMs: number;
+  private readonly mangaCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      value: Promise<{ chapters: SuwayomiChapter[]; manga: SuwayomiManga }>;
+    }
+  >();
   constructor(options: SuwayomiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     new URL(this.baseUrl);
     this.fetcher =
       options.fetch ?? ((input, init) => globalThis.fetch(input, init));
-    this.timeoutMs = options.timeoutMs ?? 15_000;
+    this.timeoutMs = options.timeoutMs ?? 30_000;
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1)
       throw new Error("Suwayomi timeout must be a positive integer.");
   }
@@ -82,11 +96,39 @@ export class SuwayomiRuntimeClient {
     query: string,
     page = 1,
   ): Promise<{ hasNextPage: boolean; items: SuwayomiManga[] }> {
+    return this.fetchSourceManga(sourceId, { page, query, type: "SEARCH" });
+  }
+  async discover(
+    sourceId: string,
+    type: "POPULAR" | "LATEST",
+    page = 1,
+  ): Promise<{ hasNextPage: boolean; items: SuwayomiManga[] }> {
+    const cacheKey = `${sourceId}:${type}:${page}`;
+    const cached = this.discoveryCache.get(cacheKey);
+    if (cached !== undefined && cached.expiresAt > Date.now())
+      return cached.value;
+    const value = this.fetchSourceManga(sourceId, { page, query: "", type });
+    this.discoveryCache.set(cacheKey, {
+      expiresAt: Date.now() + 5 * 60_000,
+      value,
+    });
+    try {
+      return await value;
+    } catch (error) {
+      this.discoveryCache.delete(cacheKey);
+      throw error;
+    }
+  }
+
+  private async fetchSourceManga(
+    sourceId: string,
+    input: { page: number; query: string; type: "SEARCH" | "POPULAR" | "LATEST" },
+  ): Promise<{ hasNextPage: boolean; items: SuwayomiManga[] }> {
     const data = await this.execute<{
       fetchSourceManga: { hasNextPage: boolean; mangas: SuwayomiMangaDto[] };
     }>(
       "mutation ($input: FetchSourceMangaInput!) { fetchSourceManga(input: $input) { hasNextPage mangas { id title description genre thumbnailUrl status author artist } } }",
-      { input: { page, query, source: sourceId, type: "SEARCH" } },
+      { input: { ...input, source: sourceId } },
     );
     return {
       hasNextPage: data.fetchSourceManga.hasNextPage === true,
@@ -96,6 +138,32 @@ export class SuwayomiRuntimeClient {
     };
   }
   async mangaAndChapters(mangaId: string): Promise<{
+    chapters: SuwayomiChapter[];
+    manga: SuwayomiManga;
+  }> {
+    const cached = this.mangaCache.get(mangaId);
+    if (cached !== undefined && cached.expiresAt > Date.now())
+      return cached.value;
+
+    const value = this.fetchMangaAndChapters(mangaId).catch(
+      async (error: unknown) => {
+        if (!isTransientMangaRequestError(error)) throw error;
+        return this.fetchMangaAndChapters(mangaId);
+      },
+    );
+    this.mangaCache.set(mangaId, {
+      expiresAt: Date.now() + 30_000,
+      value,
+    });
+    try {
+      return await value;
+    } catch (error) {
+      this.mangaCache.delete(mangaId);
+      throw error;
+    }
+  }
+
+  private async fetchMangaAndChapters(mangaId: string): Promise<{
     chapters: SuwayomiChapter[];
     manga: SuwayomiManga;
   }> {
@@ -120,6 +188,19 @@ export class SuwayomiRuntimeClient {
     };
   }
   async chapterPages(chapterId: string): Promise<string[]> {
+    try {
+      return await this.fetchChapterPages(chapterId);
+    } catch (error) {
+      if (
+        !(error instanceof SuwayomiContentUnavailableError) &&
+        !isTransientMangaRequestError(error)
+      )
+        throw error;
+      return this.fetchChapterPages(chapterId);
+    }
+  }
+
+  private async fetchChapterPages(chapterId: string): Promise<string[]> {
     const data = await this.execute<{
       fetchChapterPages: { pages: string[] } | null;
     }>(
@@ -245,6 +326,14 @@ function absoluteUrl(value: string, baseUrl: string, field: string) {
   } catch {
     throw new SuwayomiClientError(`Suwayomi returned an invalid ${field}.`);
   }
+}
+
+function isTransientMangaRequestError(error: unknown) {
+  return (
+    error instanceof SuwayomiClientTimeoutError ||
+    (error instanceof SuwayomiClientError &&
+      (error.status === 429 || (error.status !== undefined && error.status >= 500)))
+  );
 }
 function mapChapter(chapter: SuwayomiChapterDto): SuwayomiChapter {
   if (

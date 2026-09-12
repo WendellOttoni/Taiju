@@ -1,5 +1,6 @@
 import type {
   SourceChapterList,
+  SourceDiscoveryQuery,
   SourceMangaDetails,
   SourceReaderChapter,
   SourceSearchQuery,
@@ -13,8 +14,8 @@ import {
   sourceSearchResponseSchema,
 } from "../../contracts/src";
 
-import {
-  type SuwayomiChapter,
+import type {
+  SuwayomiChapter,
   SuwayomiRuntimeClient,
 } from "./suwayomi-client";
 
@@ -22,6 +23,7 @@ export type ReadingSource = {
   descriptor: SourceSummary;
   chapters(mangaExternalId: string): Promise<SourceChapterList>;
   details(mangaExternalId: string): Promise<SourceMangaDetails>;
+  discover?(query: SourceDiscoveryQuery): Promise<SourceSearchResponse>;
   pages(chapterExternalId: string): Promise<SourceReaderChapter>;
   search(query: SourceSearchQuery): Promise<SourceSearchResponse>;
 };
@@ -37,6 +39,24 @@ export class SuwayomiReadingSource implements ReadingSource {
     const result = await this.client.search(
       this.runtimeSourceId,
       query.query,
+      query.page,
+    );
+    return sourceSearchResponseSchema.parse({
+      hasNextPage: result.hasNextPage,
+      items: result.items.map((manga) => ({
+        coverUrl: manga.thumbnailUrl,
+        description: manga.description,
+        source: { externalId: manga.id, sourceId: this.descriptor.id },
+        tags: manga.genres,
+        title: manga.title,
+      })),
+    });
+  }
+
+  async discover(query: SourceDiscoveryQuery): Promise<SourceSearchResponse> {
+    const result = await this.client.discover(
+      this.runtimeSourceId,
+      query.kind === "popular" ? "POPULAR" : "LATEST",
       query.page,
     );
     return sourceSearchResponseSchema.parse({
