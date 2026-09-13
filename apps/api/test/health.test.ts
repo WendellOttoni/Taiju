@@ -98,7 +98,7 @@ describe("GET /health", () => {
   test("exposes restricted sources only to configured authenticated accounts", async () => {
     const descriptor = (
       id: string,
-      contentRating: "adult" | "safe",
+      contentRating: "adult" | "mixed" | "safe",
     ): SourceSummary => ({
       capabilities: ["search", "details", "chapters", "pages"],
       compatible: true,
@@ -115,6 +115,7 @@ describe("GET /health", () => {
     const descriptors = [
       descriptor("safe.source:1", "safe"),
       descriptor("adult.source:2", "adult"),
+      descriptor("mixed.source:3", "mixed"),
     ];
     let savedRestrictedFavorite = false;
     const testApp = createApp({
@@ -191,7 +192,7 @@ describe("GET /health", () => {
     const allowedList = await testApp.request("http://localhost/api/sources", {
       headers: { Authorization: "Bearer allowed" },
     });
-    expect((await allowedList.json()).items).toHaveLength(2);
+    expect((await allowedList.json()).items).toHaveLength(3);
 
     const restrictedUrl = "http://localhost/api/manga/adult.source%3A2/manga";
     expect((await testApp.request(restrictedUrl)).status).toBe(404);
@@ -238,9 +239,12 @@ describe("GET /health", () => {
       headers: { Authorization: "Bearer allowed" },
     });
     expect(adultDiscovery.status).toBe(200);
-    expect(await adultDiscovery.json()).toMatchObject({
-      items: [{ items: [{ source: { sourceId: "adult.source:2" } }] }],
-    });
+    const adultItems = (await adultDiscovery.json()).items as Array<{
+      items: Array<{ source: { sourceId: string } }>;
+    }>;
+    expect(
+      adultItems.map((item) => item.items[0]?.source.sourceId),
+    ).toEqual(["adult.source:2", "mixed.source:3"]);
   });
 
   test("validates a selected source through all normalized capabilities", async () => {

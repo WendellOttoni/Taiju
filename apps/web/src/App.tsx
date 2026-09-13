@@ -220,9 +220,9 @@ function SearchPage() {
       loadDiscovery("popular", "safe", controller.signal),
       loadDiscovery("latest", "safe", controller.signal),
     ])
-      .then(([popularItems, latestItems]) => {
-        setPopular(popularItems);
-        setLatest(latestItems);
+      .then(([popularResult, latestResult]) => {
+        setPopular(popularResult.items);
+        setLatest(latestResult.items);
       })
       .catch(() => {
         if (!controller.signal.aborted) {
@@ -449,9 +449,12 @@ function DiscoveryShelf({
 
 function AdultPage() {
   const [sources, setSources] = useState<SourceSummary[]>([]);
-  const [popular, setPopular] = useState<SourceMangaGroup[]>([]);
-  const [latest, setLatest] = useState<SourceMangaGroup[]>([]);
+  const [items, setItems] = useState<SourceMangaGroup[]>([]);
+  const [pageRequest, setPageRequest] = useState({ page: 1, retry: 0 });
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -470,15 +473,6 @@ function AdultPage() {
         if (restrictedSources.length === 0)
           throw new Error("Esta área não está disponível para esta conta.");
         setSources(restrictedSources);
-        return Promise.all([
-          loadDiscovery("popular", "adult", controller.signal),
-          loadDiscovery("latest", "adult", controller.signal),
-        ]);
-      })
-      .then((discovery) => {
-        if (discovery === undefined) return;
-        setPopular(discovery[0]);
-        setLatest(discovery[1]);
       })
       .catch((reason) => {
         if (!controller.signal.aborted)
@@ -490,6 +484,59 @@ function AdultPage() {
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (sources.length === 0) return;
+    const controller = new AbortController();
+    setIsLoadingPage(true);
+    setError(null);
+    void loadDiscovery("latest", "adult", controller.signal, pageRequest.page)
+      .then((payload) => {
+        setItems((current) => {
+          const byKey = new Map(current.map((item) => [item.key, item]));
+          for (const item of payload.items)
+            if (!byKey.has(item.key)) byKey.set(item.key, item);
+          return [...byKey.values()];
+        });
+        setHasNextPage(payload.hasNextPage);
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted) {
+          setHasNextPage(false);
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível carregar mais títulos.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingPage(false);
+      });
+    return () => controller.abort();
+  }, [pageRequest, sources]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (
+      sentinel === null ||
+      isLoadingPage ||
+      !hasNextPage ||
+      error !== null
+    )
+      return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        setIsLoadingPage(true);
+        setPageRequest((current) => ({ page: current.page + 1, retry: 0 }));
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [error, hasNextPage, isLoadingPage]);
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-zinc-50">
@@ -506,7 +553,7 @@ function AdultPage() {
           Área restrita
         </p>
         <h1 className="mt-3 text-4xl font-bold">Conteúdo +18</h1>
-        {error ? (
+        {error && sources.length === 0 ? (
           <p className="mt-8 text-red-300" role="alert">
             {error}
           </p>
@@ -529,16 +576,85 @@ function AdultPage() {
                 ))}
               </div>
             </section>
-            <DiscoveryShelf
-              items={popular}
-              sources={sources}
-              title="Mais acessados +18"
-            />
-            <DiscoveryShelf
-              items={latest}
-              sources={sources}
-              title="Atualizações +18"
-            />
+            <section className="mt-12">
+              <h2 className="text-2xl font-bold">Conteúdo disponível</h2>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {items.map((manga) => (
+                  <article
+                    className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
+                    key={manga.key}
+                  >
+                    <div className="aspect-[2/3] bg-zinc-800">
+                      {manga.coverUrl && (
+                        <img
+                          alt={`Capa de ${manga.title}`}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          src={manga.coverUrl}
+                        />
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-semibold">{manga.title}</h3>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {manga.items.map((item) => {
+                          const source = sources.find(
+                            (candidate) =>
+                              candidate.id === item.source.sourceId,
+                          );
+                          return (
+                            <a
+                              className="rounded border border-rose-900 px-2 py-1 text-xs text-rose-200 hover:border-rose-400"
+                              href={`/manga/${encodeURIComponent(item.source.sourceId)}/${encodeURIComponent(item.source.externalId)}`}
+                              key={`${item.source.sourceId}:${item.source.externalId}`}
+                            >
+                              {source?.name ?? "Abrir fonte"}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div ref={sentinelRef} className="h-1" aria-hidden="true" />
+              {isLoadingPage && (
+                <p className="py-8 text-center text-zinc-300" role="status">
+                  Carregando mais títulos…
+                </p>
+              )}
+              {error && sources.length > 0 && (
+                <div className="py-8 text-center">
+                  <p className="text-red-300" role="alert">
+                    {error}
+                  </p>
+                  <button
+                    className="mt-3 rounded border border-rose-700 px-3 py-2 text-sm text-rose-200"
+                    onClick={() => {
+                      setError(null);
+                      setIsLoadingPage(true);
+                      setPageRequest((current) => ({
+                        ...current,
+                        retry: current.retry + 1,
+                      }));
+                    }}
+                    type="button"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+              {!isLoadingPage && !error && !hasNextPage && items.length > 0 && (
+                <p className="py-8 text-center text-sm text-zinc-500">
+                  Você chegou ao fim da lista.
+                </p>
+              )}
+              {!isLoadingPage && !error && items.length === 0 && (
+                <p className="py-8 text-zinc-400">
+                  Nenhum título foi encontrado nas fontes disponíveis.
+                </p>
+              )}
+            </section>
           </>
         )}
       </section>
@@ -550,13 +666,14 @@ async function loadDiscovery(
   kind: "latest" | "popular",
   content: "adult" | "safe",
   signal: AbortSignal,
+  page = 1,
 ) {
   const response = await fetch(
-    `/api/manga/discover?kind=${kind}&source=all&content=${content}`,
+    `/api/manga/discover?kind=${kind}&source=all&content=${content}&page=${page}`,
     { headers: authenticatedHeaders(), signal },
   );
   if (!response.ok) throw new Error("As vitrines não estão disponíveis agora.");
-  return sourceGroupedSearchResponseSchema.parse(await response.json()).items;
+  return sourceGroupedSearchResponseSchema.parse(await response.json());
 }
 
 function isRestrictedSource(source: SourceSummary) {

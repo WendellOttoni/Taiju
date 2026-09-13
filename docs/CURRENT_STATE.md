@@ -112,9 +112,11 @@ Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir 
   fontes seguras disponíveis, independentemente da fonte selecionada na busca,
   e intercalam os resultados por fonte antes de exibir os primeiros títulos.
 - Contas autorizadas recebem a navegação para `/adult`, que lista as fontes
-  restritas disponíveis e mantém vitrines próprias de mais acessados e
-  atualizações somente dessas fontes. A rota permanece sem conteúdo para as
-  demais sessões porque a seleção adulta também é aplicada na API.
+  restritas disponíveis e apresenta um feed vertical de atualizações. O feed
+  carrega páginas adicionais automaticamente perto do fim da rolagem, deduplica
+  títulos já exibidos e agrega qualquer nova fonte `MIXED` ou `NSFW` instalada.
+  A rota permanece sem conteúdo para as demais sessões porque a seleção adulta
+  também é aplicada na API.
 
 ## Current phase
 
