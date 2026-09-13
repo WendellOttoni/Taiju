@@ -233,20 +233,30 @@ function SearchPage() {
   useEffect(() => {
     if (sources.length === 0) return;
     const controller = new AbortController();
-    void Promise.all([
-      loadDiscovery("popular", "safe", controller.signal),
-      loadDiscovery("latest", "safe", controller.signal),
-    ])
-      .then(([popularResult, latestResult]) => {
+    void (async () => {
+      try {
+        const popularResult = await loadDiscovery(
+          "popular",
+          "safe",
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
         setPopular(popularResult.items);
+      } catch {
+        if (!controller.signal.aborted) setPopular([]);
+      }
+      try {
+        const latestResult = await loadDiscovery(
+          "latest",
+          "safe",
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
         setLatest(latestResult.items);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setPopular([]);
-          setLatest([]);
-        }
-      });
+      } catch {
+        if (!controller.signal.aborted) setLatest([]);
+      }
+    })();
     return () => controller.abort();
   }, [sources]);
 
