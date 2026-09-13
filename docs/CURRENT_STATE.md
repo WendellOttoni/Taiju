@@ -115,8 +115,9 @@ Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir 
   restritas disponíveis e apresenta um feed vertical de atualizações. O feed
   carrega páginas adicionais automaticamente perto do fim da rolagem, deduplica
   títulos já exibidos e agrega qualquer nova fonte `MIXED` ou `NSFW` instalada.
-  A rota permanece sem conteúdo para as demais sessões porque a seleção adulta
-  também é aplicada na API.
+  Os badges permitem alternar entre todas as fontes e o feed paginado de uma
+  fonte restrita específica. A rota permanece sem conteúdo para as demais
+  sessões porque a seleção adulta também é aplicada na API.
 
 ## Current phase
 

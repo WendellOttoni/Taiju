@@ -16,6 +16,7 @@ import {
 } from "@taiju/contracts";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { buildDiscoveryUrl, parseDiscoveryResponse } from "./discovery";
 
 const debounceMs = 350;
 const readerPreferencesKey = "taiju:reader-preferences";
@@ -449,6 +450,7 @@ function DiscoveryShelf({
 
 function AdultPage() {
   const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState("all");
   const [items, setItems] = useState<SourceMangaGroup[]>([]);
   const [pageRequest, setPageRequest] = useState({ page: 1, retry: 0 });
   const [hasNextPage, setHasNextPage] = useState(true);
@@ -490,7 +492,13 @@ function AdultPage() {
     const controller = new AbortController();
     setIsLoadingPage(true);
     setError(null);
-    void loadDiscovery("latest", "adult", controller.signal, pageRequest.page)
+    void loadDiscovery(
+      "latest",
+      "adult",
+      controller.signal,
+      pageRequest.page,
+      selectedSourceId,
+    )
       .then((payload) => {
         setItems((current) => {
           const byKey = new Map(current.map((item) => [item.key, item]));
@@ -514,7 +522,17 @@ function AdultPage() {
         if (!controller.signal.aborted) setIsLoadingPage(false);
       });
     return () => controller.abort();
-  }, [pageRequest, sources]);
+  }, [pageRequest, selectedSourceId, sources]);
+
+  function selectSource(sourceId: string) {
+    if (sourceId === selectedSourceId) return;
+    setSelectedSourceId(sourceId);
+    setItems([]);
+    setPageRequest({ page: 1, retry: 0 });
+    setHasNextPage(true);
+    setIsLoadingPage(true);
+    setError(null);
+  }
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -566,13 +584,32 @@ function AdultPage() {
             <section className="mt-8">
               <h2 className="text-xl font-bold">Fontes disponíveis</h2>
               <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  aria-pressed={selectedSourceId === "all"}
+                  className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                    selectedSourceId === "all"
+                      ? "border-rose-400 bg-rose-800 text-white"
+                      : "border-rose-900 bg-rose-950/50 text-rose-200 hover:border-rose-500"
+                  }`}
+                  onClick={() => selectSource("all")}
+                  type="button"
+                >
+                  Todas
+                </button>
                 {sources.map((source) => (
-                  <span
-                    className="rounded-full border border-rose-900 bg-rose-950/50 px-3 py-1 text-sm text-rose-200"
+                  <button
+                    aria-pressed={selectedSourceId === source.id}
+                    className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                      selectedSourceId === source.id
+                        ? "border-rose-400 bg-rose-800 text-white"
+                        : "border-rose-900 bg-rose-950/50 text-rose-200 hover:border-rose-500"
+                    }`}
                     key={source.id}
+                    onClick={() => selectSource(source.id)}
+                    type="button"
                   >
                     {source.name}
-                  </span>
+                  </button>
                 ))}
               </div>
             </section>
@@ -667,13 +704,14 @@ async function loadDiscovery(
   content: "adult" | "safe",
   signal: AbortSignal,
   page = 1,
+  sourceId = "all",
 ) {
   const response = await fetch(
-    `/api/manga/discover?kind=${kind}&source=all&content=${content}&page=${page}`,
+    buildDiscoveryUrl({ content, kind, page, sourceId }),
     { headers: authenticatedHeaders(), signal },
   );
   if (!response.ok) throw new Error("As vitrines não estão disponíveis agora.");
-  return sourceGroupedSearchResponseSchema.parse(await response.json());
+  return parseDiscoveryResponse(await response.json(), sourceId);
 }
 
 function isRestrictedSource(source: SourceSummary) {
