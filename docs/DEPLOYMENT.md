@@ -89,3 +89,139 @@ migração de dados separada.
 - atualize imagens de forma controlada e valide em ambiente local antes;
 - não habilite ou publique mecanismos de bypass de desafios de sites sem
   avaliar implicações legais e os termos de cada fonte.
+
+## Procedimento usado na AWS (teste sem domínio pago)
+
+A instância de teste usa Ubuntu em uma EC2 com 2 vCPUs, 8 GB de RAM e disco
+de aproximadamente 290 GB. No Security Group, mantenha TCP 22 restrito ao seu
+IP e libere TCP 80 e 443. Não libere 5432 ou 4567 para a internet. Associe um
+Elastic IP antes de publicar DNS, pois o IP público comum pode mudar após
+parar e iniciar a instância.
+
+### Acesso SSH no Windows
+
+O arquivo `.pem` deve permanecer somente no computador do administrador:
+
+```powershell
+cd $env:USERPROFILE\Downloads
+$Key = (Resolve-Path ".\VPS.pem").Path
+$User = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+icacls $Key /inheritance:r
+icacls $Key /remove "DESKTOP-I157T06\CodexSandboxUsers"
+icacls $Key /grant ("{0}:(R)" -f $User)
+ssh -i ".\VPS.pem" ubuntu@IP_DA_VPS
+```
+
+Se a porta local 4567 já estiver ocupada, use outra porta local para o túnel:
+
+```powershell
+ssh -i ".\VPS.pem" -N -L 14567:127.0.0.1:4567 ubuntu@IP_DA_VPS
+```
+
+O Suwayomi remoto fica acessível em `http://localhost:14567` enquanto essa
+janela permanecer aberta.
+
+### Instalação e atualização da VPS
+
+```bash
+sudo apt update
+sudo apt install -y git docker.io docker-compose-v2
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+newgrp docker
+docker --version
+docker compose version
+```
+
+Na primeira instalação:
+
+```bash
+cd ~
+git clone https://github.com/WendellOttoni/Taiju.git
+cd Taiju
+cp deployment/.env.production.example deployment/.env.production
+chmod 600 deployment/.env.production
+nano deployment/.env.production
+```
+
+Gere os segredos dentro da VPS, sem enviá-los pelo chat ou pelo GitHub:
+
+```bash
+openssl rand -hex 24
+openssl rand -hex 32
+```
+
+Para um teste sem domínio, `nip.io` fornece um hostname baseado no IP. Com o
+IP `54.232.197.67`, usamos `54-232-197-67.nip.io`:
+
+```env
+TAIJU_DOMAIN=54-232-197-67.nip.io
+SUWAYOMI_PUBLIC_URL=https://54-232-197-67.nip.io/suwayomi
+POSTGRES_USER=taiju
+POSTGRES_PASSWORD=valor_hex_gerado
+AUTH_JWT_SECRET=outro_valor_hex_gerado
+```
+
+Valide e suba os containers:
+
+```bash
+docker compose --env-file deployment/.env.production -f compose.production.yml config --quiet
+docker compose --env-file deployment/.env.production -f compose.production.yml up -d --build
+docker compose --env-file deployment/.env.production -f compose.production.yml ps
+```
+
+Para atualizar uma instalação existente:
+
+```bash
+cd ~/Taiju
+git pull --ff-only origin main
+docker compose --env-file deployment/.env.production -f compose.production.yml up -d --build
+```
+
+### Fontes e diagnóstico
+
+Instale as extensões pela interface do Suwayomi no túnel SSH. Depois confirme
+que a API Taiju enxerga as fontes:
+
+```bash
+curl -s "https://54-232-197-67.nip.io/api/sources?language=pt-BR"
+```
+
+O healthcheck interno da API pode ser testado sem expor a porta 3000:
+
+```bash
+docker compose --env-file deployment/.env.production -f compose.production.yml \
+  exec api bun -e "fetch('http://localhost:3000/health').then(async r => { console.log(r.status); console.log(await r.text()) })"
+```
+
+O proxy público de capas/páginas usa as rotas de assets do Suwayomi:
+
+```bash
+curl -I "https://54-232-197-67.nip.io/suwayomi/api/v1/manga/ID/thumbnail"
+```
+
+Se essa rota retornar `400` com `Expected URL scheme`, o erro vem da extensão
+do Suwayomi ao resolver a URL original da imagem; não é falha de HTTPS ou do
+Caddy. Registre a fonte e o ID afetados antes de investigar a extensão.
+
+### Vercel
+
+O frontend está em `apps/web`. O projeto Vercel usa Root Directory `apps/web`,
+framework Vite, `bun run build` e saída `dist`. O arquivo
+`apps/web/vercel.json` encaminha `/api/*` para o endpoint HTTPS temporário da
+VPS e faz fallback das rotas SPA para `index.html`.
+
+Deploy manual pelo computador de desenvolvimento:
+
+```powershell
+cd C:\Repositorio\Taiju
+vercel login
+vercel link
+vercel --prod --yes
+```
+
+Depois de cada correção que deve chegar à VPS e à integração Git:
+
+```powershell
+git push origin main
+```
