@@ -34,6 +34,7 @@ const sources =
       );
 
 const app = createApp({
+  adultContentEmails: environment.ADULT_CONTENT_EMAILS,
   auth,
   history:
     database === undefined ? undefined : createHistoryRepository(database),

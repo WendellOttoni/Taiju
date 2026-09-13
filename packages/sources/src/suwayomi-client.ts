@@ -5,6 +5,7 @@ export type SuwayomiClientOptions = {
   timeoutMs?: number;
 };
 export type SuwayomiSource = {
+  contentWarning: "MIXED" | "NSFW" | "SAFE";
   id: string;
   language: string;
   name: string;
@@ -78,6 +79,7 @@ export class SuwayomiRuntimeClient {
     const data = await this.execute<{
       sources: {
         nodes: Array<{
+          contentWarning: unknown;
           id: string;
           lang: string;
           name: string;
@@ -85,9 +87,10 @@ export class SuwayomiRuntimeClient {
         }>;
       };
     }>(
-      "{ sources { nodes { id name lang extension { pkgName versionName } } } }",
+      "{ sources { nodes { id name lang contentWarning extension { pkgName versionName } } } }",
     );
     return data.sources.nodes.map((source) => ({
+      contentWarning: requireContentWarning(source.contentWarning),
       id: requireText(source.id, "source.id"),
       language: requireText(source.lang, "source.lang"),
       name: requireText(source.name, "source.name"),
@@ -126,7 +129,11 @@ export class SuwayomiRuntimeClient {
 
   private async fetchSourceManga(
     sourceId: string,
-    input: { page: number; query: string; type: "SEARCH" | "POPULAR" | "LATEST" },
+    input: {
+      page: number;
+      query: string;
+      type: "SEARCH" | "POPULAR" | "LATEST";
+    },
   ): Promise<{ hasNextPage: boolean; items: SuwayomiManga[] }> {
     const data = await this.execute<{
       fetchSourceManga: { hasNextPage: boolean; mangas: SuwayomiMangaDto[] };
@@ -350,6 +357,15 @@ function absoluteUrl(value: string, baseUrl: string, field: string) {
   }
 }
 
+function requireContentWarning(
+  value: unknown,
+): SuwayomiSource["contentWarning"] {
+  if (value === "SAFE" || value === "MIXED" || value === "NSFW") return value;
+  throw new SuwayomiClientError(
+    "Suwayomi returned an invalid source content warning.",
+  );
+}
+
 function publicAssetUrl(
   value: string,
   baseUrl: string,
@@ -376,7 +392,8 @@ function isTransientMangaRequestError(error: unknown) {
   return (
     error instanceof SuwayomiClientTimeoutError ||
     (error instanceof SuwayomiClientError &&
-      (error.status === 429 || (error.status !== undefined && error.status >= 500)))
+      (error.status === 429 ||
+        (error.status !== undefined && error.status >= 500)))
   );
 }
 function mapChapter(chapter: SuwayomiChapterDto): SuwayomiChapter {

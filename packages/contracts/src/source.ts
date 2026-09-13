@@ -11,6 +11,8 @@ export const sourceCapabilitySchema = z.enum([
   "search",
 ]);
 
+export const sourceContentRatingSchema = z.enum(["adult", "mixed", "safe"]);
+
 export const sourceProvenanceSchema = z.object({
   catalogUrl: z.string().url(),
   packageName: z.string().trim().min(1),
@@ -20,6 +22,7 @@ export const sourceProvenanceSchema = z.object({
 export const sourceSummarySchema = z.object({
   capabilities: z.array(sourceCapabilitySchema).min(1),
   compatible: z.boolean(),
+  contentRating: sourceContentRatingSchema.optional(),
   id: z.string().trim().min(1),
   language: sourceLanguageSchema,
   name: z.string().trim().min(1),
@@ -37,6 +40,7 @@ export const sourceListResponseSchema = z.object({
 });
 
 export type SourceCapability = z.infer<typeof sourceCapabilitySchema>;
+export type SourceContentRating = z.infer<typeof sourceContentRatingSchema>;
 export type SourceLanguage = z.infer<typeof sourceLanguageSchema>;
 export type SourceProvenance = z.infer<typeof sourceProvenanceSchema>;
 export type SourceRef = z.infer<typeof sourceRefSchema>;

@@ -59,6 +59,7 @@ export {
 } from "./reading-source";
 export type {
   SourceCapability,
+  SourceContentRating,
   SourceLanguage,
   SourceProvenance,
   SourceRef,
@@ -66,6 +67,7 @@ export type {
 } from "./source";
 export {
   sourceCapabilitySchema,
+  sourceContentRatingSchema,
   sourceLanguageSchema,
   sourceListResponseSchema,
   sourceProvenanceSchema,

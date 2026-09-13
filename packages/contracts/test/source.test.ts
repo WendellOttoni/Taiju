@@ -11,6 +11,7 @@ test("validates source identity, provenance and capabilities", () => {
   const source = sourceSummarySchema.parse({
     capabilities: ["search", "details", "chapters", "pages"],
     compatible: true,
+    contentRating: "adult",
     id: "example-source",
     language: "pt-BR",
     name: "Example Source",
@@ -22,4 +23,5 @@ test("validates source identity, provenance and capabilities", () => {
     version: "1.0.0",
   });
   expect(source.provenance.packageName).toBe("com.example.source");
+  expect(source.contentRating).toBe("adult");
 });

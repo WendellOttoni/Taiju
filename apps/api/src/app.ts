@@ -1,3 +1,9 @@
+import type {
+  AuthenticatedUser,
+  SourceMangaSummary,
+  SourceSearchResponse,
+  SourceSummary,
+} from "@taiju/contracts";
 import {
   authCredentialsSchema,
   chapterFeedQuerySchema,
@@ -9,7 +15,6 @@ import {
   sourceReadingProgressSchema,
   sourceSearchQuerySchema,
 } from "@taiju/contracts";
-import type { SourceMangaSummary, SourceSearchResponse } from "@taiju/contracts";
 import type {
   HistoryRepository,
   LibraryRepository,
@@ -42,6 +47,7 @@ import {
 import { jsonError } from "./http/errors";
 
 export type ApiDependencies = {
+  adultContentEmails?: readonly string[];
   auth?: AuthService;
   history?: HistoryRepository;
   library?: LibraryRepository;
@@ -53,6 +59,11 @@ export type ApiDependencies = {
 
 export function createApp(dependencies: ApiDependencies = {}) {
   const mangaDexClient = dependencies.mangaDexClient ?? new MangaDexClient();
+  const adultContentEmails = new Set(
+    (dependencies.adultContentEmails ?? []).map((email) =>
+      email.trim().toLowerCase(),
+    ),
+  );
   const auth = dependencies.auth;
   const library = dependencies.library;
   const history = dependencies.history;
@@ -297,7 +308,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "authentication_unavailable",
         "Persistence is not configured.",
       );
-    const items = await library.list(user.id);
+    const items = await filterStoredSourceItems(
+      await library.list(user.id),
+      (item) => [item.mangaProvider],
+      sources,
+      user,
+      adultContentEmails,
+    );
     return context.json({
       items: items.map((item) => ({
         createdAt: item.createdAt.toISOString(),
@@ -323,7 +340,20 @@ export function createApp(dependencies: ApiDependencies = {}) {
       sourceId: context.req.param("sourceId"),
     };
     if (!validSourceRef(manga))
-      return jsonError(context, 400, "validation_error", "Invalid manga source.");
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga source.",
+      );
+    const denied = await restrictedSourceResponse(
+      context,
+      sources,
+      manga.sourceId,
+      user,
+      adultContentEmails,
+    );
+    if (denied !== undefined) return denied;
     await library.add(user.id, manga.sourceId, manga.externalId);
     return context.body(null, 204);
   });
@@ -342,7 +372,20 @@ export function createApp(dependencies: ApiDependencies = {}) {
       sourceId: context.req.param("sourceId"),
     };
     if (!validSourceRef(manga))
-      return jsonError(context, 400, "validation_error", "Invalid manga source.");
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga source.",
+      );
+    const denied = await restrictedSourceResponse(
+      context,
+      sources,
+      manga.sourceId,
+      user,
+      adultContentEmails,
+    );
+    if (denied !== undefined) return denied;
     await library.remove(user.id, manga.sourceId, manga.externalId);
     return context.body(null, 204);
   });
@@ -356,7 +399,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "authentication_unavailable",
         "Persistence is not configured.",
       );
-    const items = await history.list(user.id);
+    const items = await filterStoredSourceItems(
+      await history.list(user.id),
+      (item) => [item.mangaProvider, item.chapterProvider],
+      sources,
+      user,
+      adultContentEmails,
+    );
     return context.json({
       items: items.map((item) => ({
         chapter: {
@@ -382,9 +431,32 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "authentication_unavailable",
         "Persistence is not configured.",
       );
-    const parsed = sourceReadingProgressSchema.safeParse(await context.req.json());
+    const parsed = sourceReadingProgressSchema.safeParse(
+      await context.req.json(),
+    );
     if (!parsed.success)
-      return jsonError(context, 400, "validation_error", "Invalid reading progress.");
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid reading progress.",
+      );
+    const denied =
+      (await restrictedSourceResponse(
+        context,
+        sources,
+        parsed.data.manga.sourceId,
+        user,
+        adultContentEmails,
+      )) ??
+      (await restrictedSourceResponse(
+        context,
+        sources,
+        parsed.data.chapter.sourceId,
+        user,
+        adultContentEmails,
+      ));
+    if (denied !== undefined) return denied;
     await history.save(user.id, {
       chapterProvider: parsed.data.chapter.sourceId,
       chapterProviderId: parsed.data.chapter.externalId,
@@ -417,7 +489,12 @@ export function createApp(dependencies: ApiDependencies = {}) {
     if (sourceId === undefined || sourceId === "")
       return context.json(await searchManga(mangaDexClient, parsed.data));
     if (sourceId === "all") {
-      const selectedSources = await resolveSourcesForSearch(context, sources);
+      const selectedSources = await resolveSourcesForSearch(
+        context,
+        sources,
+        auth,
+        adultContentEmails,
+      );
       if (selectedSources instanceof Response) return selectedSources;
       const page = Math.floor(parsed.data.offset / parsed.data.limit) + 1;
       const searches = await mapWithConcurrency(selectedSources, 3, (source) =>
@@ -449,7 +526,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         ),
       });
     }
-    const source = await resolveSource(context, sources, sourceId);
+    const source = await resolveSource(
+      context,
+      sources,
+      sourceId,
+      auth,
+      adultContentEmails,
+    );
     if (source instanceof Response) return source;
     return context.json(
       await source.search({
@@ -475,14 +558,22 @@ export function createApp(dependencies: ApiDependencies = {}) {
       );
     const sourceId = context.req.query("source")?.trim() ?? "all";
     if (sourceId === "all") {
-      const selectedSources = await resolveSourcesForSearch(context, sources);
+      const selectedSources = await resolveSourcesForSearch(
+        context,
+        sources,
+        auth,
+        adultContentEmails,
+      );
       if (selectedSources instanceof Response) return selectedSources;
       const discoverableSources = selectedSources.filter(
         (source) => source.discover !== undefined,
       );
-      const results = await mapWithConcurrency(discoverableSources, 2, (source) =>
-        source.discover?.(parsed.data) ??
-        Promise.reject(new Error("Source discovery is unavailable.")),
+      const results = await mapWithConcurrency(
+        discoverableSources,
+        2,
+        (source) =>
+          source.discover?.(parsed.data) ??
+          Promise.reject(new Error("Source discovery is unavailable.")),
       );
       const fulfilled = results.filter(
         (result): result is PromiseFulfilledResult<SourceSearchResponse> =>
@@ -497,7 +588,8 @@ export function createApp(dependencies: ApiDependencies = {}) {
         );
       return context.json({
         failedSourceIds: results.flatMap((result, index) =>
-          result.status === "rejected" && discoverableSources[index] !== undefined
+          result.status === "rejected" &&
+          discoverableSources[index] !== undefined
             ? [discoverableSources[index].descriptor.id]
             : [],
         ),
@@ -507,7 +599,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         ),
       });
     }
-    const source = await resolveSource(context, sources, sourceId);
+    const source = await resolveSource(
+      context,
+      sources,
+      sourceId,
+      auth,
+      adultContentEmails,
+    );
     if (source instanceof Response) return source;
     if (source.discover === undefined)
       return jsonError(
@@ -532,19 +630,16 @@ export function createApp(dependencies: ApiDependencies = {}) {
     try {
       let preferredLanguages: string[] | undefined;
       let enabledSourceIds: string[] | undefined;
-      const token = bearerToken(context.req.header("Authorization"));
-      if (
-        token !== undefined &&
-        auth !== undefined &&
-        sourcePreferences !== undefined
-      ) {
-        const user = await auth.authenticate(token);
+      const user = await optionalAuthenticatedUser(context, auth);
+      if (user !== undefined && sourcePreferences !== undefined) {
         const preferences = await sourcePreferences.get(user.id);
         preferredLanguages = preferences?.preferredLanguages;
         enabledSourceIds = preferences?.enabledSourceIds;
       }
-      const listed = await sources.list(
-        languages.length === 0 ? undefined : languages,
+      const listed = (
+        await sources.list(languages.length === 0 ? undefined : languages)
+      ).filter((source) =>
+        sourceIsAccessible(source, user, adultContentEmails),
       );
       const ordered = [...listed].sort((left, right) => {
         const leftLanguage = preferredLanguages?.indexOf(left.language) ?? -1;
@@ -597,11 +692,16 @@ export function createApp(dependencies: ApiDependencies = {}) {
       );
     const selectedId = context.req.query("source")?.trim();
     try {
-      const descriptors = selectedId
-        ? (await sources.list()).filter(
-            (descriptor) => descriptor.id === selectedId,
-          )
-        : await sources.list(["pt-BR", "en"]);
+      const user = await optionalAuthenticatedUser(context, auth);
+      const descriptors = (
+        selectedId
+          ? (await sources.list()).filter(
+              (descriptor) => descriptor.id === selectedId,
+            )
+          : await sources.list(["pt-BR", "en"])
+      ).filter((source) =>
+        sourceIsAccessible(source, user, adultContentEmails),
+      );
       if (descriptors.length === 0)
         return jsonError(
           context,
@@ -679,7 +779,19 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Invalid validation limit.",
       );
     try {
-      const items = await validationRepository.list(sourceId, limit);
+      const user = await optionalAuthenticatedUser(context, auth);
+      const restrictedSourceIds = await listRestrictedSourceIds(sources);
+      if (
+        sourceId !== undefined &&
+        restrictedSourceIds.has(sourceId) &&
+        !userCanAccessAdultContent(user, adultContentEmails)
+      )
+        return sourceNotFound(context);
+      const items = (await validationRepository.list(sourceId, limit)).filter(
+        (item) =>
+          !restrictedSourceIds.has(item.sourceId) ||
+          userCanAccessAdultContent(user, adultContentEmails),
+      );
       return context.json({
         items: items.map((item) => ({
           ...item,
@@ -711,7 +823,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "validation_error",
         "Alternative sources require a dynamic source reference.",
       );
-    const current = await resolveSource(context, sources, provider);
+    const current = await resolveSource(
+      context,
+      sources,
+      provider,
+      auth,
+      adultContentEmails,
+    );
     if (current instanceof Response) return current;
     if (sources === undefined)
       return jsonError(
@@ -722,7 +840,12 @@ export function createApp(dependencies: ApiDependencies = {}) {
       );
     try {
       const details = await current.details(context.req.param("id"));
-      const candidates = await sources.list([current.descriptor.language]);
+      const user = await optionalAuthenticatedUser(context, auth);
+      const candidates = (
+        await sources.list([current.descriptor.language])
+      ).filter((source) =>
+        sourceIsAccessible(source, user, adultContentEmails),
+      );
       const resolved = await mapWithConcurrency(
         candidates.filter((candidate) => candidate.id !== provider),
         3,
@@ -763,6 +886,8 @@ export function createApp(dependencies: ApiDependencies = {}) {
         context,
         sources,
         context.req.param("provider"),
+        auth,
+        adultContentEmails,
       );
       if (source instanceof Response) return source;
       return context.json(await source.details(context.req.param("id")));
@@ -787,6 +912,8 @@ export function createApp(dependencies: ApiDependencies = {}) {
         context,
         sources,
         context.req.param("provider"),
+        auth,
+        adultContentEmails,
       );
       if (source instanceof Response) return source;
       return context.json(await source.chapters(context.req.param("id")));
@@ -836,6 +963,8 @@ export function createApp(dependencies: ApiDependencies = {}) {
         context,
         sources,
         context.req.param("provider"),
+        auth,
+        adultContentEmails,
       );
       if (source instanceof Response) return source;
       return context.json(await source.pages(context.req.param("id")));
@@ -949,6 +1078,8 @@ async function resolveSource(
   context: Context,
   sources: SourceDirectory | undefined,
   sourceId: string,
+  auth: AuthService | undefined,
+  adultContentEmails: ReadonlySet<string>,
 ): Promise<ReadingSource | Response> {
   if (sources === undefined)
     return jsonError(
@@ -959,7 +1090,12 @@ async function resolveSource(
     );
   try {
     const source = await sources.get(sourceId);
-    if (source !== undefined) return source;
+    if (source !== undefined) {
+      const user = await optionalAuthenticatedUser(context, auth);
+      if (sourceIsAccessible(source.descriptor, user, adultContentEmails))
+        return source;
+      return sourceNotFound(context);
+    }
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -987,6 +1123,8 @@ async function resolveSource(
 async function resolveSourcesForSearch(
   context: Context,
   sources: SourceDirectory | undefined,
+  auth: AuthService | undefined,
+  adultContentEmails: ReadonlySet<string>,
 ): Promise<ReadingSource[] | Response> {
   if (sources === undefined)
     return jsonError(
@@ -996,7 +1134,10 @@ async function resolveSourcesForSearch(
       "The source runtime is not configured.",
     );
   try {
-    const descriptors = await sources.list(["pt-BR", "en"]);
+    const user = await optionalAuthenticatedUser(context, auth);
+    const descriptors = (await sources.list(["pt-BR", "en"])).filter((source) =>
+      sourceIsAccessible(source, user, adultContentEmails),
+    );
     const resolved = await Promise.all(
       descriptors.map((descriptor) => sources.get(descriptor.id)),
     );
@@ -1018,6 +1159,90 @@ async function resolveSourcesForSearch(
       "The source runtime is unavailable.",
     );
   }
+}
+
+async function optionalAuthenticatedUser(
+  context: Context,
+  auth: AuthService | undefined,
+): Promise<AuthenticatedUser | undefined> {
+  const token = bearerToken(context.req.header("Authorization"));
+  if (token === undefined || auth === undefined) return undefined;
+  try {
+    return await auth.authenticate(token);
+  } catch (error) {
+    if (error instanceof AuthenticationError) return undefined;
+    throw error;
+  }
+}
+
+function sourceIsAccessible(
+  source: SourceSummary,
+  user: AuthenticatedUser | undefined,
+  adultContentEmails: ReadonlySet<string>,
+) {
+  return (
+    (source.contentRating !== "adult" && source.contentRating !== "mixed") ||
+    userCanAccessAdultContent(user, adultContentEmails)
+  );
+}
+
+function userCanAccessAdultContent(
+  user: AuthenticatedUser | undefined,
+  adultContentEmails: ReadonlySet<string>,
+) {
+  return user !== undefined && adultContentEmails.has(user.email.toLowerCase());
+}
+
+async function listRestrictedSourceIds(sources: SourceDirectory | undefined) {
+  if (sources === undefined) return new Set<string>();
+  return new Set(
+    (await sources.list())
+      .filter(
+        (source) =>
+          source.contentRating === "adult" || source.contentRating === "mixed",
+      )
+      .map((source) => source.id),
+  );
+}
+
+async function restrictedSourceResponse(
+  context: Context,
+  sources: SourceDirectory | undefined,
+  sourceId: string,
+  user: AuthenticatedUser,
+  adultContentEmails: ReadonlySet<string>,
+) {
+  if (sourceId === "mangadex" || sources === undefined) return undefined;
+  const source = await sources.get(sourceId);
+  if (
+    source !== undefined &&
+    !sourceIsAccessible(source.descriptor, user, adultContentEmails)
+  )
+    return sourceNotFound(context);
+  return undefined;
+}
+
+async function filterStoredSourceItems<T>(
+  items: T[],
+  sourceIds: (item: T) => readonly string[],
+  sources: SourceDirectory | undefined,
+  user: AuthenticatedUser,
+  adultContentEmails: ReadonlySet<string>,
+) {
+  if (userCanAccessAdultContent(user, adultContentEmails)) return items;
+  const restrictedSourceIds = await listRestrictedSourceIds(sources);
+  return items.filter((item) =>
+    sourceIds(item).every((sourceId) => !restrictedSourceIds.has(sourceId)),
+  );
+}
+
+function sourceNotFound(context: Context) {
+  return jsonError(
+    context,
+    404,
+    "not_found",
+    "The requested source was not found.",
+  );
 }
 
 async function mapWithConcurrency<T, R>(

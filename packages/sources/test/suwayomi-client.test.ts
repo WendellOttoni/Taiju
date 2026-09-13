@@ -18,6 +18,7 @@ describe("Suwayomi runtime client", () => {
             sources: {
               nodes: [
                 {
+                  contentWarning: "SAFE",
                   id: "1",
                   lang: "en",
                   name: "Example",
@@ -31,6 +32,7 @@ describe("Suwayomi runtime client", () => {
     });
     await expect(client.listSources()).resolves.toEqual([
       {
+        contentWarning: "SAFE",
         id: "1",
         language: "en",
         name: "Example",
@@ -74,6 +76,7 @@ describe("Suwayomi runtime client", () => {
             sources: {
               nodes: [
                 {
+                  contentWarning: "NSFW",
                   id: "1",
                   lang: "en",
                   name: "Example",
@@ -86,6 +89,34 @@ describe("Suwayomi runtime client", () => {
         }),
     });
     await expect(client.listSources()).resolves.toHaveLength(1);
+  });
+
+  test("rejects unknown source content classifications", async () => {
+    const client = new SuwayomiRuntimeClient({
+      baseUrl: "http://suwayomi.test",
+      fetch: async () =>
+        Response.json({
+          data: {
+            sources: {
+              nodes: [
+                {
+                  contentWarning: "UNKNOWN",
+                  extension: {
+                    pkgName: "example.source",
+                    versionName: "1.0",
+                  },
+                  id: "1",
+                  lang: "en",
+                  name: "Example",
+                },
+              ],
+            },
+          },
+        }),
+    });
+    await expect(client.listSources()).rejects.toBeInstanceOf(
+      SuwayomiClientError,
+    );
   });
 
   test("classifies a chapter with no returned pages as unavailable", async () => {
@@ -211,7 +242,9 @@ describe("Suwayomi runtime client", () => {
       items: [],
     });
     expect(input).toMatchObject({
-      variables: { input: { page: 1, query: "", source: "source-1", type: "POPULAR" } },
+      variables: {
+        input: { page: 1, query: "", source: "source-1", type: "POPULAR" },
+      },
     });
     await client.discover("source-1", "POPULAR");
     expect(calls).toBe(1);

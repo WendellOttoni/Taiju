@@ -36,7 +36,9 @@ Edite `deployment/.env.production` e preencha:
 - `TAIJU_DOMAIN` com o domínio real, sem `https://`;
 - `POSTGRES_USER` com `taiju`;
 - `POSTGRES_PASSWORD` com uma senha longa, única e alfanumérica;
-- `AUTH_JWT_SECRET` com pelo menos 32 caracteres aleatórios.
+- `AUTH_JWT_SECRET` com pelo menos 32 caracteres aleatórios;
+- `ADULT_CONTENT_EMAILS` com os e-mails autorizados, separados por vírgula, ou
+  vazio para não liberar fontes restritas a nenhuma conta.
 
 Não versione esse arquivo. Para gerar valores seguros no VPS:
 
@@ -160,7 +162,13 @@ SUWAYOMI_PUBLIC_URL=https://54-232-197-67.nip.io/suwayomi
 POSTGRES_USER=taiju
 POSTGRES_PASSWORD=valor_hex_gerado
 AUTH_JWT_SECRET=outro_valor_hex_gerado
+ADULT_CONTENT_EMAILS=
 ```
+
+Fontes classificadas pelo Suwayomi como `MIXED` ou `NSFW` ficam ocultas para
+visitantes e contas não autorizadas. Para liberar somente uma conta, configure,
+por exemplo, `ADULT_CONTENT_EMAILS=conta@example.com`. Não coloque esse valor no
+repositório; altere somente `deployment/.env.production` no VPS.
 
 Valide e suba os containers:
 

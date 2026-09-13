@@ -95,6 +95,132 @@ describe("GET /health", () => {
     });
   });
 
+  test("exposes restricted sources only to configured authenticated accounts", async () => {
+    const descriptor = (
+      id: string,
+      contentRating: "adult" | "safe",
+    ): SourceSummary => ({
+      capabilities: ["search", "details", "chapters", "pages"],
+      compatible: true,
+      contentRating,
+      id,
+      language: "pt-BR",
+      name: id,
+      provenance: {
+        catalogUrl: "https://catalog.example/index.pb",
+        packageName: id,
+      },
+      version: "1.0",
+    });
+    const descriptors = [
+      descriptor("safe.source:1", "safe"),
+      descriptor("adult.source:2", "adult"),
+    ];
+    let savedRestrictedFavorite = false;
+    const testApp = createApp({
+      adultContentEmails: ["birulabr@gmail.com"],
+      auth: {
+        authenticate: async (token) => ({
+          email:
+            token === "allowed" ? "birulabr@gmail.com" : "reader@example.com",
+          id: token,
+        }),
+        login: async () => {
+          throw new Error("Not used by this test.");
+        },
+        register: async () => {
+          throw new Error("Not used by this test.");
+        },
+      },
+      library: {
+        add: async () => {
+          savedRestrictedFavorite = true;
+        },
+        list: async () => [],
+        remove: async () => {
+          savedRestrictedFavorite = false;
+        },
+      },
+      sources: {
+        list: async () => descriptors,
+        get: async (id) => {
+          const source = descriptors.find((item) => item.id === id);
+          if (source === undefined) return undefined;
+          return {
+            chapters: async () => ({ items: [] }),
+            descriptor: source,
+            details: async () => ({
+              alternativeTitles: [],
+              artists: [],
+              authors: [],
+              source: { externalId: "manga", sourceId: source.id },
+              tags: [],
+              title: "Restricted title",
+            }),
+            pages: async () => ({
+              pageUrls: ["https://images.example/page.jpg"],
+              source: { externalId: "chapter", sourceId: source.id },
+            }),
+            search: async () => ({
+              failedSourceIds: [],
+              hasNextPage: false,
+              items: [],
+            }),
+          };
+        },
+      },
+    });
+
+    const anonymousList = await testApp.request("http://localhost/api/sources");
+    expect((await anonymousList.json()).items).toHaveLength(1);
+    const deniedList = await testApp.request("http://localhost/api/sources", {
+      headers: { Authorization: "Bearer denied" },
+    });
+    expect((await deniedList.json()).items).toHaveLength(1);
+    const allowedList = await testApp.request("http://localhost/api/sources", {
+      headers: { Authorization: "Bearer allowed" },
+    });
+    expect((await allowedList.json()).items).toHaveLength(2);
+
+    const restrictedUrl = "http://localhost/api/manga/adult.source%3A2/manga";
+    expect((await testApp.request(restrictedUrl)).status).toBe(404);
+    expect(
+      (
+        await testApp.request(restrictedUrl, {
+          headers: { Authorization: "Bearer denied" },
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await testApp.request(restrictedUrl, {
+          headers: { Authorization: "Bearer allowed" },
+        })
+      ).status,
+    ).toBe(200);
+
+    const favoriteUrl =
+      "http://localhost/api/source-library/adult.source%3A2/manga";
+    expect(
+      (
+        await testApp.request(favoriteUrl, {
+          headers: { Authorization: "Bearer denied" },
+          method: "PUT",
+        })
+      ).status,
+    ).toBe(404);
+    expect(savedRestrictedFavorite).toBe(false);
+    expect(
+      (
+        await testApp.request(favoriteUrl, {
+          headers: { Authorization: "Bearer allowed" },
+          method: "PUT",
+        })
+      ).status,
+    ).toBe(204);
+    expect(savedRestrictedFavorite).toBe(true);
+  });
+
   test("validates a selected source through all normalized capabilities", async () => {
     const testApp = createApp({
       sources: {
@@ -249,7 +375,10 @@ describe("GET /health", () => {
       id,
       language: "en",
       name: id,
-      provenance: { catalogUrl: "https://catalog.example/index.pb", packageName: id },
+      provenance: {
+        catalogUrl: "https://catalog.example/index.pb",
+        packageName: id,
+      },
       version: "1.0",
     });
     const testApp = createApp({
@@ -258,13 +387,27 @@ describe("GET /health", () => {
           chapters: async () => ({ items: [] }),
           descriptor: descriptor(id),
           details: async () => ({
-            alternativeTitles: [], artists: [], authors: [],
-            source: { externalId: "manga", sourceId: id }, tags: ["Action"], title: "Same Manga",
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "manga", sourceId: id },
+            tags: ["Action"],
+            title: "Same Manga",
           }),
-          pages: async () => ({ pageUrls: ["https://images.example/1.jpg"], source: { externalId: "chapter", sourceId: id } }),
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "chapter", sourceId: id },
+          }),
           search: async () => ({
-            failedSourceIds: [], hasNextPage: false,
-            items: [{ source: { externalId: `manga-${id}`, sourceId: id }, tags: ["Action"], title: "Same Manga" }],
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [
+              {
+                source: { externalId: `manga-${id}`, sourceId: id },
+                tags: ["Action"],
+                title: "Same Manga",
+              },
+            ],
           }),
         }),
         list: async () => [descriptor("source:1"), descriptor("source:2")],
@@ -275,7 +418,15 @@ describe("GET /health", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      items: [{ items: [{ source: { sourceId: "source:1" } }, { source: { sourceId: "source:2" } }], title: "Same Manga" }],
+      items: [
+        {
+          items: [
+            { source: { sourceId: "source:1" } },
+            { source: { sourceId: "source:2" } },
+          ],
+          title: "Same Manga",
+        },
+      ],
     });
   });
 
@@ -319,7 +470,11 @@ describe("GET /health", () => {
             pageUrls: ["https://images.example/1.jpg"],
             source: { externalId: "chapter", sourceId: "source:1" },
           }),
-          search: async () => ({ failedSourceIds: [], hasNextPage: false, items: [] }),
+          search: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [],
+          }),
         }),
         list: async () => [],
       },

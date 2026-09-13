@@ -100,6 +100,15 @@ Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir 
 - A página inicial expõe “Mais lidos” e “Lançamentos recentes” por meio das operações normalizadas `POPULAR` e `LATEST` do Suwayomi, com origem explícita e cache de cinco minutos por fonte/operação.
 - Uma indisponibilidade transitória ao resolver páginas de capítulo recebe uma segunda tentativa antes de ser exposta como conteúdo indisponível.
 
+- O Taiju converte a classificação `SAFE`/`MIXED`/`NSFW` do Suwayomi para um
+  contrato próprio e trata fontes `MIXED` e `NSFW` como restritas.
+- A variável privada `ADULT_CONTENT_EMAILS` controla quais contas autenticadas
+  podem listar e acessar fontes restritas. Demais usuários recebem `404` nas
+  rotas da fonte, e favoritos/histórico restritos também são filtrados.
+- A web envia a sessão autenticada nas operações de fontes, busca, descoberta,
+  detalhes, capítulos e leitor, permitindo que somente a conta autorizada use a
+  fonte restrita.
+
 ## Current phase
 
 Source-engine migration started; existing MangaDex flow remains the legacy adapter until subsequent source tasks.
@@ -115,6 +124,11 @@ Próxima prioridade: validação ao vivo persistente do sidecar e scanner catalo
 See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
+
+As URLs de imagens já emitidas pelo Suwayomi podem apontar para o proxy público
+de assets ou para o host original da extensão. O controle implementado protege a
+descoberta e todas as operações Taiju por fonte, mas não revoga uma URL de imagem
+que já tenha sido obtida por uma conta autorizada.
 
 ## Consolidated manga status
 

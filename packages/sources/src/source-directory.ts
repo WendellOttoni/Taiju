@@ -2,7 +2,7 @@ import type { SourceSummary } from "../../contracts/src";
 import { sourceLanguageSchema, sourceSummarySchema } from "../../contracts/src";
 
 import { type ReadingSource, SuwayomiReadingSource } from "./reading-source";
-import { type SuwayomiSource, SuwayomiRuntimeClient } from "./suwayomi-client";
+import type { SuwayomiRuntimeClient, SuwayomiSource } from "./suwayomi-client";
 
 export type SourceDirectory = {
   get(id: string): Promise<ReadingSource | undefined>;
@@ -40,11 +40,19 @@ export class SuwayomiSourceDirectory implements SourceDirectory {
 }
 
 function toDescriptor(source: SuwayomiSource): SourceSummary | undefined {
-  const language = sourceLanguageSchema.safeParse(normalizeLanguage(source.language));
+  const language = sourceLanguageSchema.safeParse(
+    normalizeLanguage(source.language),
+  );
   if (!language.success) return undefined;
   return sourceSummarySchema.parse({
     capabilities: ["search", "details", "chapters", "pages"],
     compatible: true,
+    contentRating:
+      source.contentWarning === "NSFW"
+        ? "adult"
+        : source.contentWarning === "MIXED"
+          ? "mixed"
+          : "safe",
     id: descriptorId(source),
     language: language.data,
     name: source.name,

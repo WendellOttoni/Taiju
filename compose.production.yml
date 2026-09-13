@@ -39,6 +39,7 @@ services:
       context: .
       dockerfile: deployment/api.Dockerfile
     environment:
+      ADULT_CONTENT_EMAILS: ${ADULT_CONTENT_EMAILS:-}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET in deployment/.env.production}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/taiju
       PORT: 3000

@@ -164,7 +164,7 @@ function SearchPage() {
       try {
         const response = await fetch(
           `/api/manga/search?q=${encodeURIComponent(normalizedQuery)}&source=${encodeURIComponent(sourceId)}`,
-          { signal: controller.signal },
+          { headers: authenticatedHeaders(), signal: controller.signal },
         );
         if (!response.ok) throw new Error("A busca não está disponível agora.");
         const json = await response.json();
@@ -213,7 +213,7 @@ function SearchPage() {
     const load = async (kind: "popular" | "latest") => {
       const response = await fetch(
         `/api/manga/discover?kind=${kind}&source=${encodeURIComponent(selectedSource)}`,
-        { signal: controller.signal },
+        { headers: authenticatedHeaders(), signal: controller.signal },
       );
       if (!response.ok) throw new Error("Discovery is unavailable.");
       const json = await response.json();
@@ -466,6 +466,7 @@ function AuthPanel() {
             onClick={() => {
               localStorage.removeItem(authTokenKey);
               setAuthenticated(false);
+              window.location.reload();
             }}
             type="button"
           >
@@ -608,7 +609,7 @@ function LibraryPage() {
           uniqueReferences.map(async (reference) => {
             const response = await fetch(
               `/api/manga/${encodeURIComponent(reference.sourceId)}/${encodeURIComponent(reference.externalId)}`,
-              { signal: controller.signal },
+              { headers: authenticatedHeaders(), signal: controller.signal },
             );
             if (!response.ok) return undefined;
             const manga = sourceMangaDetailsSchema.parse(await response.json());
@@ -741,6 +742,7 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
         const response = await fetch(
           `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`,
           {
+            headers: authenticatedHeaders(),
             signal: controller.signal,
           },
         );
@@ -777,7 +779,7 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
     const controller = new AbortController();
     void fetch(
       `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/alternatives`,
-      { signal: controller.signal },
+      { headers: authenticatedHeaders(), signal: controller.signal },
     )
       .then(async (response) => {
         if (!response.ok) return { items: [] };
@@ -796,6 +798,7 @@ function DetailsPage({ provider, id }: { provider: string; id: string }) {
         const response = await fetch(
           `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/chapters`,
           {
+            headers: authenticatedHeaders(),
             signal: controller.signal,
           },
         );
@@ -983,6 +986,7 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
         const response = await fetch(
           `/api/chapters/${encodeURIComponent(provider)}/${encodeURIComponent(id)}/pages`,
           {
+            headers: authenticatedHeaders(),
             signal: controller.signal,
           },
         );
@@ -1007,6 +1011,7 @@ function ReaderPage({ provider, id }: { provider: string; id: string }) {
     void fetch(
       `/api/manga/${encodeURIComponent(provider)}/${encodeURIComponent(mangaId)}/chapters`,
       {
+        headers: authenticatedHeaders(),
         signal: controller.signal,
       },
     )

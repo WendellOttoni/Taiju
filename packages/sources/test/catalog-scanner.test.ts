@@ -29,6 +29,7 @@ describe("Project Nox catalog scanner", () => {
   test("classifies loaded, missing and stale runtime sources", () => {
     const report = scanProjectNoxCatalog(catalog, [
       {
+        contentWarning: "SAFE",
         id: "10",
         language: "pt-BR",
         name: "Example PT",
@@ -36,6 +37,7 @@ describe("Project Nox catalog scanner", () => {
         version: "1.2.0",
       },
       {
+        contentWarning: "SAFE",
         id: "11",
         language: "en",
         name: "Example EN",
