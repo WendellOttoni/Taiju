@@ -176,3 +176,8 @@ portanto a ausência dele não impede a operação de mangás.
 No deploy de produção, o Miwayomi usa o sidecar interno FlareSolverr para
 resolver desafios Cloudflare das fontes que o permitam. O serviço não possui
 porta publicada e não participa do caminho de mangás.
+
+O Miwayomi de produção usa `-Xverify:none` para permitir o carregamento de
+extensões Aniyomi que o conversor DEX→JVM entrega com stackmaps inválidos.
+Esse ajuste foi validado com a extensão Hianimes: a fonte aparece, pesquisa e
+lista episódios; a resolução de vídeos ainda depende do hoster da fonte.
