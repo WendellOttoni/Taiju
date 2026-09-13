@@ -38,7 +38,7 @@ services:
     image: ghcr.io/miwayomi/miwayomi:latest
     environment:
       FLARESOLVERR_URL: http://flaresolverr:8191
-      JAVA_OPTS: -Xms64m -Xmx512m -XX:+UseSerialGC
+      JAVA_OPTS: -Xms64m -Xmx512m -XX:+UseSerialGC -Xverify:none
     depends_on:
       flaresolverr:
         condition: service_started
