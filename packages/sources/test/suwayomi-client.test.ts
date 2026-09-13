@@ -117,6 +117,21 @@ describe("Suwayomi runtime client", () => {
     ]);
   });
 
+  test("rewrites runtime asset URLs to the configured public base", async () => {
+    const client = new SuwayomiRuntimeClient({
+      baseUrl: "http://suwayomi.test",
+      publicBaseUrl: "https://reader.test/suwayomi",
+      fetch: async () =>
+        Response.json({
+          data: { fetchChapterPages: { pages: ["/api/v1/manga/1/page/0"] } },
+        }),
+    });
+
+    await expect(client.chapterPages("1")).resolves.toEqual([
+      "https://reader.test/suwayomi/api/v1/manga/1/page/0",
+    ]);
+  });
+
   test("coalesces concurrent details and chapter requests for the same manga", async () => {
     let calls = 0;
     const client = new SuwayomiRuntimeClient({

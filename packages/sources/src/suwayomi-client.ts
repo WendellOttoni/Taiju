@@ -1,5 +1,6 @@
 export type SuwayomiClientOptions = {
   baseUrl: string;
+  publicBaseUrl?: string;
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   timeoutMs?: number;
 };
@@ -45,6 +46,7 @@ export class SuwayomiContentUnavailableError extends SuwayomiClientError {
 }
 export class SuwayomiRuntimeClient {
   private readonly baseUrl: string;
+  private readonly publicBaseUrl?: string;
   private readonly discoveryCache = new Map<
     string,
     {
@@ -64,6 +66,8 @@ export class SuwayomiRuntimeClient {
   constructor(options: SuwayomiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     new URL(this.baseUrl);
+    this.publicBaseUrl = options.publicBaseUrl?.replace(/\/$/, "");
+    if (this.publicBaseUrl !== undefined) new URL(this.publicBaseUrl);
     this.fetcher =
       options.fetch ?? ((input, init) => globalThis.fetch(input, init));
     this.timeoutMs = options.timeoutMs ?? 30_000;
@@ -133,7 +137,7 @@ export class SuwayomiRuntimeClient {
     return {
       hasNextPage: data.fetchSourceManga.hasNextPage === true,
       items: data.fetchSourceManga.mangas.map((manga) =>
-        mapManga(manga, this.baseUrl),
+        mapManga(manga, this.baseUrl, this.publicBaseUrl),
       ),
     };
   }
@@ -183,7 +187,11 @@ export class SuwayomiRuntimeClient {
       },
     );
     return {
-      manga: mapManga(data.fetchMangaAndChapters.manga, this.baseUrl),
+      manga: mapManga(
+        data.fetchMangaAndChapters.manga,
+        this.baseUrl,
+        this.publicBaseUrl,
+      ),
       chapters: data.fetchMangaAndChapters.chapters.map(mapChapter),
     };
   }
@@ -215,7 +223,12 @@ export class SuwayomiRuntimeClient {
     if (pages.some((page) => typeof page !== "string" || page.length === 0))
       throw new SuwayomiClientError("Suwayomi returned invalid chapter pages.");
     return pages.map((page) =>
-      absoluteUrl(page, this.baseUrl, "chapter page URL"),
+      publicAssetUrl(
+        page,
+        this.baseUrl,
+        this.publicBaseUrl,
+        "chapter page URL",
+      ),
     );
   }
   async execute<T>(
@@ -299,7 +312,11 @@ function optionalText(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   return requireText(value, field);
 }
-function mapManga(manga: SuwayomiMangaDto, baseUrl: string): SuwayomiManga {
+function mapManga(
+  manga: SuwayomiMangaDto,
+  baseUrl: string,
+  publicBaseUrl?: string,
+): SuwayomiManga {
   if (
     !Array.isArray(manga.genre) ||
     manga.genre.some((genre) => typeof genre !== "string")
@@ -316,13 +333,40 @@ function mapManga(manga: SuwayomiMangaDto, baseUrl: string): SuwayomiManga {
     thumbnailUrl:
       thumbnailUrl === undefined
         ? undefined
-        : absoluteUrl(thumbnailUrl, baseUrl, "manga thumbnail URL"),
+        : publicAssetUrl(
+            thumbnailUrl,
+            baseUrl,
+            publicBaseUrl,
+            "manga thumbnail URL",
+          ),
     title: requireText(manga.title, "manga.title"),
   };
 }
 function absoluteUrl(value: string, baseUrl: string, field: string) {
   try {
     return new URL(value, baseUrl).toString();
+  } catch {
+    throw new SuwayomiClientError(`Suwayomi returned an invalid ${field}.`);
+  }
+}
+
+function publicAssetUrl(
+  value: string,
+  baseUrl: string,
+  publicBaseUrl: string | undefined,
+  field: string,
+) {
+  const resolved = absoluteUrl(value, baseUrl, field);
+  if (publicBaseUrl === undefined) return resolved;
+  try {
+    const internalOrigin = new URL(baseUrl).origin;
+    const resolvedUrl = new URL(resolved);
+    if (resolvedUrl.origin !== internalOrigin) return resolved;
+    const publicUrl = new URL(publicBaseUrl);
+    publicUrl.pathname = `${publicUrl.pathname.replace(/\/$/, "")}${resolvedUrl.pathname}`;
+    publicUrl.search = resolvedUrl.search;
+    publicUrl.hash = resolvedUrl.hash;
+    return publicUrl.toString();
   } catch {
     throw new SuwayomiClientError(`Suwayomi returned an invalid ${field}.`);
   }

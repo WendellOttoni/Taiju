@@ -1,6 +1,12 @@
 {$TAIJU_DOMAIN} {
   encode zstd gzip
 
+  @suwayomiAssets path /suwayomi/api/v1/manga/*
+  handle @suwayomiAssets {
+    uri strip_prefix /suwayomi
+    reverse_proxy suwayomi:4567
+  }
+
   route /api/* {
     reverse_proxy api:3000
   }

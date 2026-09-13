@@ -27,7 +27,10 @@ const sources =
   environment.SUWAYOMI_URL === undefined
     ? undefined
     : new SuwayomiSourceDirectory(
-        new SuwayomiRuntimeClient({ baseUrl: environment.SUWAYOMI_URL }),
+        new SuwayomiRuntimeClient({
+          baseUrl: environment.SUWAYOMI_URL,
+          publicBaseUrl: environment.SUWAYOMI_PUBLIC_URL,
+        }),
       );
 
 const app = createApp({
