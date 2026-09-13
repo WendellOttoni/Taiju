@@ -73,6 +73,7 @@ export function App() {
       );
   }
   if (window.location.pathname === "/library") return <LibraryPage />;
+  if (window.location.pathname === "/adult") return <AdultPage />;
   const match = window.location.pathname.match(/^\/manga\/([^/]+)\/([^/]+)$/);
   if (match === null) return <SearchPage />;
   const [, provider, id] = match;
@@ -89,6 +90,7 @@ function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SourceMangaGroup[]>([]);
   const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [hasAdultAccess, setHasAdultAccess] = useState(false);
   const [sourceId, setSourceId] = useState(
     () => localStorage.getItem(sourcePreferenceKey) ?? "",
   );
@@ -104,22 +106,24 @@ function SearchPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(
-      `/api/sources?language=${encodeURIComponent(preferredLanguage)}`,
-      {
-        headers: (() => {
-          const token = localStorage.getItem(authTokenKey);
-          return token ? { Authorization: `Bearer ${token}` } : undefined;
-        })(),
-        signal: controller.signal,
-      },
-    )
+    void fetch("/api/sources", {
+      headers: (() => {
+        const token = localStorage.getItem(authTokenKey);
+        return token ? { Authorization: `Bearer ${token}` } : undefined;
+      })(),
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok)
           throw new Error("As fontes não estão disponíveis agora.");
         return sourceListResponseSchema.parse(await response.json());
       })
-      .then((payload) => setSources(payload.items))
+      .then((payload) => {
+        setHasAdultAccess(
+          payload.items.some((source) => isRestrictedSource(source)),
+        );
+        setSources(payload.items);
+      })
       .catch((reason) => {
         if (!controller.signal.aborted)
           setError(
@@ -129,14 +133,17 @@ function SearchPage() {
           );
       });
     return () => controller.abort();
-  }, [preferredLanguage]);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(languagePreferenceKey, preferredLanguage);
     setSourceId((current) =>
       current !== "all" &&
       sources.length > 0 &&
-      !sources.some((source) => source.id === current)
+      !sources.some(
+        (source) =>
+          source.id === current && source.language === preferredLanguage,
+      )
         ? ""
         : current,
     );
@@ -209,26 +216,10 @@ function SearchPage() {
   useEffect(() => {
     if (sources.length === 0) return;
     const controller = new AbortController();
-    const selectedSource = sourceId === "" ? "all" : sourceId;
-    const load = async (kind: "popular" | "latest") => {
-      const response = await fetch(
-        `/api/manga/discover?kind=${kind}&source=${encodeURIComponent(selectedSource)}`,
-        { headers: authenticatedHeaders(), signal: controller.signal },
-      );
-      if (!response.ok) throw new Error("Discovery is unavailable.");
-      const json = await response.json();
-      if (selectedSource === "all")
-        return sourceGroupedSearchResponseSchema.parse(json).items;
-      return sourceSearchResponseSchema.parse(json).items.map((item) => ({
-        coverUrl: item.coverUrl,
-        description: item.description,
-        items: [item],
-        key: `${item.source.sourceId}:${item.source.externalId}`,
-        tags: item.tags,
-        title: item.title,
-      }));
-    };
-    void Promise.all([load("popular"), load("latest")])
+    void Promise.all([
+      loadDiscovery("popular", "safe", controller.signal),
+      loadDiscovery("latest", "safe", controller.signal),
+    ])
       .then(([popularItems, latestItems]) => {
         setPopular(popularItems);
         setLatest(latestItems);
@@ -240,12 +231,22 @@ function SearchPage() {
         }
       });
     return () => controller.abort();
-  }, [sourceId, sources]);
+  }, [sources]);
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-16 text-zinc-50">
       <section className="mx-auto max-w-6xl">
         <AuthPanel />
+        {hasAdultAccess && (
+          <nav className="mb-6 flex gap-4 text-sm">
+            <a className="text-rose-300 underline" href="/adult">
+              Área +18
+            </a>
+            <a className="text-zinc-300 underline" href="/library">
+              Minha biblioteca
+            </a>
+          </nav>
+        )}
         <p className="text-sm font-medium tracking-[0.3em] text-amber-400 uppercase">
           Taiju
         </p>
@@ -292,11 +293,13 @@ function SearchPage() {
           >
             <option value="">Selecione uma fonte</option>
             <option value="all">Todas as fontes disponíveis</option>
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name} · {source.language}
-              </option>
-            ))}
+            {sources
+              .filter((source) => source.language === preferredLanguage)
+              .map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name} · {source.language}
+                </option>
+              ))}
           </select>
         </label>
         {isLoading && (
@@ -320,12 +323,12 @@ function SearchPage() {
             <DiscoveryShelf
               items={popular}
               sources={sources}
-              title="Mais lidos"
+              title="Mais acessados"
             />
             <DiscoveryShelf
               items={latest}
               sources={sources}
-              title="Lançamentos recentes"
+              title="Atualizações recentes"
             />
           </>
         )}
@@ -442,6 +445,122 @@ function DiscoveryShelf({
       </div>
     </section>
   );
+}
+
+function AdultPage() {
+  const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [popular, setPopular] = useState<SourceMangaGroup[]>([]);
+  const [latest, setLatest] = useState<SourceMangaGroup[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!localStorage.getItem(authTokenKey)) {
+      setError("Esta área não está disponível para esta sessão.");
+      return () => controller.abort();
+    }
+    void fetch("/api/sources", {
+      headers: authenticatedHeaders(),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Não foi possível validar o acesso.");
+        const payload = sourceListResponseSchema.parse(await response.json());
+        const restrictedSources = payload.items.filter(isRestrictedSource);
+        if (restrictedSources.length === 0)
+          throw new Error("Esta área não está disponível para esta conta.");
+        setSources(restrictedSources);
+        return Promise.all([
+          loadDiscovery("popular", "adult", controller.signal),
+          loadDiscovery("latest", "adult", controller.signal),
+        ]);
+      })
+      .then((discovery) => {
+        if (discovery === undefined) return;
+        setPopular(discovery[0]);
+        setLatest(discovery[1]);
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "A área +18 não está disponível agora.",
+          );
+      });
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-zinc-950 px-6 py-12 text-zinc-50">
+      <section className="mx-auto max-w-6xl">
+        <nav className="flex gap-4 text-sm">
+          <a className="text-amber-400" href="/">
+            ← Voltar ao Taiju
+          </a>
+          <a className="text-zinc-300 underline" href="/library">
+            Minha biblioteca
+          </a>
+        </nav>
+        <p className="mt-10 text-sm font-medium tracking-[0.3em] text-rose-400 uppercase">
+          Área restrita
+        </p>
+        <h1 className="mt-3 text-4xl font-bold">Conteúdo +18</h1>
+        {error ? (
+          <p className="mt-8 text-red-300" role="alert">
+            {error}
+          </p>
+        ) : sources.length === 0 ? (
+          <p className="mt-8 text-zinc-300" role="status">
+            Carregando fontes autorizadas…
+          </p>
+        ) : (
+          <>
+            <section className="mt-8">
+              <h2 className="text-xl font-bold">Fontes disponíveis</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {sources.map((source) => (
+                  <span
+                    className="rounded-full border border-rose-900 bg-rose-950/50 px-3 py-1 text-sm text-rose-200"
+                    key={source.id}
+                  >
+                    {source.name}
+                  </span>
+                ))}
+              </div>
+            </section>
+            <DiscoveryShelf
+              items={popular}
+              sources={sources}
+              title="Mais acessados +18"
+            />
+            <DiscoveryShelf
+              items={latest}
+              sources={sources}
+              title="Atualizações +18"
+            />
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
+
+async function loadDiscovery(
+  kind: "latest" | "popular",
+  content: "adult" | "safe",
+  signal: AbortSignal,
+) {
+  const response = await fetch(
+    `/api/manga/discover?kind=${kind}&source=all&content=${content}`,
+    { headers: authenticatedHeaders(), signal },
+  );
+  if (!response.ok) throw new Error("As vitrines não estão disponíveis agora.");
+  return sourceGroupedSearchResponseSchema.parse(await response.json()).items;
+}
+
+function isRestrictedSource(source: SourceSummary) {
+  return source.contentRating === "adult" || source.contentRating === "mixed";
 }
 
 function AuthPanel() {

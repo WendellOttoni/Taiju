@@ -108,6 +108,13 @@ Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir 
 - A web envia a sessão autenticada nas operações de fontes, busca, descoberta,
   detalhes, capítulos e leitor, permitindo que somente a conta autorizada use a
   fonte restrita.
+- As vitrines gerais de mais acessados e atualizações consultam sempre todas as
+  fontes seguras disponíveis, independentemente da fonte selecionada na busca,
+  e intercalam os resultados por fonte antes de exibir os primeiros títulos.
+- Contas autorizadas recebem a navegação para `/adult`, que lista as fontes
+  restritas disponíveis e mantém vitrines próprias de mais acessados e
+  atualizações somente dessas fontes. A rota permanece sem conteúdo para as
+  demais sessões porque a seleção adulta também é aplicada na API.
 
 ## Current phase
 

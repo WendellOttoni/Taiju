@@ -556,13 +556,29 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "validation_error",
         "Invalid source discovery query.",
       );
+    const content = context.req.query("content");
+    if (content !== undefined && content !== "adult" && content !== "safe")
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid source discovery content filter.",
+      );
     const sourceId = context.req.query("source")?.trim() ?? "all";
+    if (sourceId !== "all" && content !== undefined)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Content filtering requires discovery across all sources.",
+      );
     if (sourceId === "all") {
       const selectedSources = await resolveSourcesForSearch(
         context,
         sources,
         auth,
         adultContentEmails,
+        content,
       );
       if (selectedSources instanceof Response) return selectedSources;
       const discoverableSources = selectedSources.filter(
@@ -595,7 +611,9 @@ export function createApp(dependencies: ApiDependencies = {}) {
         ),
         hasNextPage: fulfilled.some((result) => result.value.hasNextPage),
         items: groupSourceSearchItems(
-          fulfilled.flatMap((result) => result.value.items.slice(0, 20)),
+          interleaveSourceItems(
+            fulfilled.map((result) => result.value.items.slice(0, 20)),
+          ),
         ),
       });
     }
@@ -1125,6 +1143,7 @@ async function resolveSourcesForSearch(
   sources: SourceDirectory | undefined,
   auth: AuthService | undefined,
   adultContentEmails: ReadonlySet<string>,
+  content?: "adult" | "safe",
 ): Promise<ReadingSource[] | Response> {
   if (sources === undefined)
     return jsonError(
@@ -1135,9 +1154,15 @@ async function resolveSourcesForSearch(
     );
   try {
     const user = await optionalAuthenticatedUser(context, auth);
-    const descriptors = (await sources.list(["pt-BR", "en"])).filter((source) =>
-      sourceIsAccessible(source, user, adultContentEmails),
-    );
+    const descriptors = (await sources.list(["pt-BR", "en"]))
+      .filter((source) =>
+        sourceIsAccessible(source, user, adultContentEmails),
+      )
+      .filter((source) => {
+        if (content === "adult") return sourceIsRestricted(source);
+        if (content === "safe") return !sourceIsRestricted(source);
+        return true;
+      });
     const resolved = await Promise.all(
       descriptors.map((descriptor) => sources.get(descriptor.id)),
     );
@@ -1181,9 +1206,13 @@ function sourceIsAccessible(
   adultContentEmails: ReadonlySet<string>,
 ) {
   return (
-    (source.contentRating !== "adult" && source.contentRating !== "mixed") ||
+    !sourceIsRestricted(source) ||
     userCanAccessAdultContent(user, adultContentEmails)
   );
+}
+
+function sourceIsRestricted(source: SourceSummary) {
+  return source.contentRating === "adult" || source.contentRating === "mixed";
 }
 
 function userCanAccessAdultContent(
@@ -1243,6 +1272,20 @@ function sourceNotFound(context: Context) {
     "not_found",
     "The requested source was not found.",
   );
+}
+
+function interleaveSourceItems(itemsBySource: SourceMangaSummary[][]) {
+  const items: SourceMangaSummary[] = [];
+  const longest = Math.max(
+    0,
+    ...itemsBySource.map((sourceItems) => sourceItems.length),
+  );
+  for (let index = 0; index < longest; index += 1)
+    for (const sourceItems of itemsBySource) {
+      const item = sourceItems[index];
+      if (item !== undefined) items.push(item);
+    }
+  return items;
 }
 
 async function mapWithConcurrency<T, R>(

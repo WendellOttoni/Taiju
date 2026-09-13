@@ -157,6 +157,17 @@ describe("GET /health", () => {
               tags: [],
               title: "Restricted title",
             }),
+            discover: async () => ({
+              failedSourceIds: [],
+              hasNextPage: false,
+              items: [
+                {
+                  source: { externalId: "manga", sourceId: source.id },
+                  tags: [],
+                  title: "Restricted title",
+                },
+              ],
+            }),
             pages: async () => ({
               pageUrls: ["https://images.example/page.jpg"],
               source: { externalId: "chapter", sourceId: source.id },
@@ -219,6 +230,17 @@ describe("GET /health", () => {
       ).status,
     ).toBe(204);
     expect(savedRestrictedFavorite).toBe(true);
+
+    const adultDiscoveryUrl =
+      "http://localhost/api/manga/discover?kind=popular&source=all&content=adult";
+    expect((await testApp.request(adultDiscoveryUrl)).status).toBe(503);
+    const adultDiscovery = await testApp.request(adultDiscoveryUrl, {
+      headers: { Authorization: "Bearer allowed" },
+    });
+    expect(adultDiscovery.status).toBe(200);
+    expect(await adultDiscovery.json()).toMatchObject({
+      items: [{ items: [{ source: { sourceId: "adult.source:2" } }] }],
+    });
   });
 
   test("validates a selected source through all normalized capabilities", async () => {
@@ -486,6 +508,73 @@ describe("GET /health", () => {
     expect(await response.json()).toMatchObject({
       items: [{ title: "Popular Manga" }],
     });
+  });
+
+  test("interleaves discovery results from every selected source", async () => {
+    const descriptor = (id: string): SourceSummary => ({
+      capabilities: ["search", "details", "chapters", "pages"],
+      compatible: true,
+      contentRating: "safe",
+      id,
+      language: "pt-BR",
+      name: id,
+      provenance: {
+        catalogUrl: "https://catalog.example/index.pb",
+        packageName: id,
+      },
+      version: "1.0",
+    });
+    const descriptors = [descriptor("source:1"), descriptor("source:2")];
+    const testApp = createApp({
+      sources: {
+        list: async () => descriptors,
+        get: async (id) => ({
+          chapters: async () => ({ items: [] }),
+          descriptor: descriptor(id),
+          details: async () => ({
+            alternativeTitles: [],
+            artists: [],
+            authors: [],
+            source: { externalId: "manga", sourceId: id },
+            tags: [],
+            title: "Manga",
+          }),
+          discover: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [1, 2, 3].map((number) => ({
+              source: { externalId: `${number}`, sourceId: id },
+              tags: [],
+              title: `${id} title ${number}`,
+            })),
+          }),
+          pages: async () => ({
+            pageUrls: ["https://images.example/1.jpg"],
+            source: { externalId: "chapter", sourceId: id },
+          }),
+          search: async () => ({
+            failedSourceIds: [],
+            hasNextPage: false,
+            items: [],
+          }),
+        }),
+      },
+    });
+    const response = await testApp.request(
+      "http://localhost/api/manga/discover?kind=latest&source=all&content=safe",
+    );
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      items: Array<{ items: Array<{ source: { sourceId: string } }> }>;
+    };
+    expect(payload.items.map((item) => item.items[0]?.source.sourceId)).toEqual([
+      "source:1",
+      "source:2",
+      "source:1",
+      "source:2",
+      "source:1",
+      "source:2",
+    ]);
   });
 
   test("delegates a selected source search through the neutral contract", async () => {
