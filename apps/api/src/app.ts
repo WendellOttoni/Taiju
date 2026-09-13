@@ -421,6 +421,38 @@ export function createApp(dependencies: ApiDependencies = {}) {
       })),
     });
   });
+  app.delete("/api/source-reading-history/:sourceId/:externalId", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (history === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Persistence is not configured.",
+      );
+    const manga = {
+      externalId: context.req.param("externalId"),
+      sourceId: context.req.param("sourceId"),
+    };
+    if (!validSourceRef(manga))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga source.",
+      );
+    const denied = await restrictedSourceResponse(
+      context,
+      sources,
+      manga.sourceId,
+      user,
+      adultContentEmails,
+    );
+    if (denied !== undefined) return denied;
+    await history.remove(user.id, manga.sourceId, manga.externalId);
+    return context.body(null, 204);
+  });
   app.put("/api/source-reading-progress", async (context) => {
     const user = await authenticatedUser(context, auth);
     if (user instanceof Response) return user;
@@ -486,6 +518,21 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Invalid manga search query.",
       );
     const sourceId = context.req.query("source")?.trim();
+    const content = context.req.query("content");
+    if (content !== undefined && content !== "adult" && content !== "safe")
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid manga search content filter.",
+      );
+    if (content !== undefined && sourceId !== "all")
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Content filtering requires search across all sources.",
+      );
     if (sourceId === undefined || sourceId === "")
       return context.json(await searchManga(mangaDexClient, parsed.data));
     if (sourceId === "all") {
@@ -494,6 +541,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
         sources,
         auth,
         adultContentEmails,
+        content as "adult" | "safe" | undefined,
       );
       if (selectedSources instanceof Response) return selectedSources;
       const page = Math.floor(parsed.data.offset / parsed.data.limit) + 1;

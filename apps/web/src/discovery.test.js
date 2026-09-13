@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { buildDiscoveryUrl, parseDiscoveryResponse } from "./discovery";
+import {
+  buildDiscoveryUrl,
+  buildSearchUrl,
+  parseDiscoveryResponse,
+  parseSearchResponse,
+} from "./discovery";
 
 describe("adult discovery source filtering", () => {
   test("keeps the content filter when querying every source", () => {
@@ -63,5 +68,32 @@ describe("adult discovery source filtering", () => {
       },
     ]);
     expect(result.hasNextPage).toBe(true);
+  });
+
+  test("adds the adult filter only to aggregate searches", () => {
+    expect(buildSearchUrl({ query: "example", sourceId: "all" })).toBe(
+      "/api/manga/search?q=example&source=all&content=adult",
+    );
+    expect(
+      buildSearchUrl({ query: "example", sourceId: "adult.source:1" }),
+    ).toBe("/api/manga/search?q=example&source=adult.source%3A1");
+  });
+
+  test("normalizes selected-source search results", () => {
+    const result = parseSearchResponse(
+      {
+        failedSourceIds: [],
+        hasNextPage: false,
+        items: [
+          {
+            source: { externalId: "manga-1", sourceId: "adult.source:1" },
+            tags: [],
+            title: "Example",
+          },
+        ],
+      },
+      "adult.source:1",
+    );
+    expect(result.items[0]?.key).toBe("adult.source:1:manga-1");
   });
 });

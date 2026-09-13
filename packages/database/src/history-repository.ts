@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import type { TaijuDatabase } from "./client";
 import { readingHistory } from "./schema";
@@ -14,6 +14,11 @@ export type ReadingHistoryEntry = {
 
 export type HistoryRepository = {
   list(userId: string): Promise<ReadingHistoryEntry[]>;
+  remove(
+    userId: string,
+    mangaProvider: string,
+    mangaProviderId: string,
+  ): Promise<void>;
   save(
     userId: string,
     entry: Omit<ReadingHistoryEntry, "updatedAt">,
@@ -37,6 +42,17 @@ export function createHistoryRepository(
         .from(readingHistory)
         .where(eq(readingHistory.userId, userId))
         .orderBy(desc(readingHistory.updatedAt));
+    },
+    async remove(userId, mangaProvider, mangaProviderId) {
+      await database
+        .delete(readingHistory)
+        .where(
+          and(
+            eq(readingHistory.userId, userId),
+            eq(readingHistory.mangaProvider, mangaProvider),
+            eq(readingHistory.mangaProviderId, mangaProviderId),
+          ),
+        );
     },
     async save(userId, entry) {
       await database

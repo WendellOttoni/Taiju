@@ -179,6 +179,14 @@ describe("authentication", () => {
       async list() {
         return historyItems;
       },
+      async remove(_userId, mangaProvider, mangaProviderId) {
+        const index = historyItems.findIndex(
+          (item) =>
+            item.mangaProvider === mangaProvider &&
+            item.mangaProviderId === mangaProviderId,
+        );
+        if (index >= 0) historyItems.splice(index, 1);
+      },
       async save(_userId, entry) {
         historyItems.splice(0, historyItems.length, {
           ...entry,
@@ -231,7 +239,8 @@ describe("authentication", () => {
     const favorites = await testApp.request("http://localhost/api/source-library", {
       headers,
     });
-    expect(await favorites.json()).toMatchObject({
+    const favoritesPayload = await favorites.json();
+    expect(favoritesPayload).toMatchObject({
       items: [
         {
           manga: { externalId: "manga-123", sourceId: "example.source:1" },
@@ -251,5 +260,21 @@ describe("authentication", () => {
         },
       ],
     });
+    expect(
+      (
+        await testApp.request(
+          "http://localhost/api/source-reading-history/example.source%3A1/manga-123",
+          { headers, method: "DELETE" },
+        )
+      ).status,
+    ).toBe(204);
+    expect(
+      (await (await testApp.request("http://localhost/api/source-reading-history", { headers })).json()).items,
+    ).toEqual([]);
+    const remainingFavorites = await testApp.request(
+      "http://localhost/api/source-library",
+      { headers },
+    );
+    expect((await remainingFavorites.json()).items).toHaveLength(1);
   });
 });

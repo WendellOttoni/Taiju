@@ -16,7 +16,12 @@ import {
 } from "@taiju/contracts";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { buildDiscoveryUrl, parseDiscoveryResponse } from "./discovery";
+import {
+  buildDiscoveryUrl,
+  buildSearchUrl,
+  parseDiscoveryResponse,
+  parseSearchResponse,
+} from "./discovery";
 
 const debounceMs = 350;
 const readerPreferencesKey = "taiju:reader-preferences";
@@ -451,6 +456,11 @@ function DiscoveryShelf({
 function AdultPage() {
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SourceMangaGroup[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [items, setItems] = useState<SourceMangaGroup[]>([]);
   const [pageRequest, setPageRequest] = useState({ page: 1, retry: 0 });
   const [hasNextPage, setHasNextPage] = useState(true);
@@ -535,6 +545,47 @@ function AdultPage() {
   }
 
   useEffect(() => {
+    const normalizedQuery = searchQuery.trim();
+    if (sources.length === 0 || normalizedQuery.length === 0) {
+      setSearchResults([]);
+      setSearchError(null);
+      setIsSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setIsSearching(true);
+      setSearchError(null);
+      try {
+        const response = await fetch(
+          buildSearchUrl({ query: normalizedQuery, sourceId: selectedSourceId }),
+          { headers: authenticatedHeaders(), signal: controller.signal },
+        );
+        if (!response.ok)
+          throw new Error("A pesquisa +18 não está disponível agora.");
+        setSearchResults(
+          parseSearchResponse(await response.json(), selectedSourceId).items,
+        );
+      } catch (reason) {
+        if (!controller.signal.aborted) {
+          setSearchResults([]);
+          setSearchError(
+            reason instanceof Error
+              ? reason.message
+              : "Não foi possível pesquisar nesta área.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
+      }
+    }, debounceMs);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [searchQuery, selectedSourceId, sources.length]);
+
+  useEffect(() => {
     const sentinel = sentinelRef.current;
     if (
       sentinel === null ||
@@ -613,10 +664,41 @@ function AdultPage() {
                 ))}
               </div>
             </section>
+            <form
+              className="mt-8 flex flex-col gap-3 sm:flex-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSearchQuery(searchInput.trim());
+              }}
+            >
+              <label className="sr-only" htmlFor="adult-search">
+                Pesquisar conteúdo +18
+              </label>
+              <input
+                className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-zinc-50 outline-none focus:border-rose-400"
+                id="adult-search"
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Pesquisar na área +18"
+                value={searchInput}
+              />
+              <button
+                className="rounded-lg bg-rose-800 px-5 py-3 font-semibold text-white hover:bg-rose-700"
+                type="submit"
+              >
+                Pesquisar
+              </button>
+            </form>
+            {searchQuery && (
+              <p className="mt-3 text-sm text-zinc-400">
+                Resultados para: <span className="text-rose-200">{searchQuery}</span>
+              </p>
+            )}
             <section className="mt-12">
-              <h2 className="text-2xl font-bold">Conteúdo disponível</h2>
+              <h2 className="text-2xl font-bold">
+                {searchQuery ? "Resultados da pesquisa" : "Conteúdo disponível"}
+              </h2>
               <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {items.map((manga) => (
+                {(searchQuery ? searchResults : items).map((manga) => (
                   <article
                     className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900"
                     key={manga.key}
@@ -654,13 +736,25 @@ function AdultPage() {
                   </article>
                 ))}
               </div>
-              <div ref={sentinelRef} className="h-1" aria-hidden="true" />
-              {isLoadingPage && (
+              {!searchQuery && (
+                <div ref={sentinelRef} className="h-1" aria-hidden="true" />
+              )}
+              {isSearching && (
+                <p className="py-8 text-center text-zinc-300" role="status">
+                  Pesquisando…
+                </p>
+              )}
+              {searchError && (
+                <p className="py-8 text-center text-red-300" role="alert">
+                  {searchError}
+                </p>
+              )}
+              {!searchQuery && isLoadingPage && (
                 <p className="py-8 text-center text-zinc-300" role="status">
                   Carregando mais títulos…
                 </p>
               )}
-              {error && sources.length > 0 && (
+              {!searchQuery && error && sources.length > 0 && (
                 <div className="py-8 text-center">
                   <p className="text-red-300" role="alert">
                     {error}
@@ -681,12 +775,17 @@ function AdultPage() {
                   </button>
                 </div>
               )}
-              {!isLoadingPage && !error && !hasNextPage && items.length > 0 && (
+              {!searchQuery && !isLoadingPage && !error && !hasNextPage && items.length > 0 && (
                 <p className="py-8 text-center text-sm text-zinc-500">
                   Você chegou ao fim da lista.
                 </p>
               )}
-              {!isLoadingPage && !error && items.length === 0 && (
+              {searchQuery && !isSearching && !searchError && searchResults.length === 0 && (
+                <p className="py-8 text-zinc-400">
+                  Nenhum título encontrado para esta pesquisa.
+                </p>
+              )}
+              {!searchQuery && !isLoadingPage && !error && items.length === 0 && (
                 <p className="py-8 text-zinc-400">
                   Nenhum título foi encontrado nas fontes disponíveis.
                 </p>
@@ -839,6 +938,9 @@ function LibraryPage() {
   const [titles, setTitles] = useState<Record<string, string>>({});
   const [covers, setCovers] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [removingHistoryKey, setRemovingHistoryKey] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!localStorage.getItem(authTokenKey)) {
@@ -926,6 +1028,33 @@ function LibraryPage() {
     return () => controller.abort();
   }, []);
 
+  async function removeHistoryEntry(item: (typeof history)[number]) {
+    const key = `${item.manga.sourceId}:${item.manga.externalId}`;
+    setRemovingHistoryKey(key);
+    try {
+      const response = await fetch(
+        `/api/source-reading-history/${encodeURIComponent(item.manga.sourceId)}/${encodeURIComponent(item.manga.externalId)}`,
+        { headers: authenticatedHeaders(), method: "DELETE" },
+      );
+      if (!response.ok) throw new Error("Não foi possível remover o histórico.");
+      setHistory((current) =>
+        current.filter(
+          (entry) =>
+            entry.manga.sourceId !== item.manga.sourceId ||
+            entry.manga.externalId !== item.manga.externalId,
+        ),
+      );
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Não foi possível remover o histórico.",
+      );
+    } finally {
+      setRemovingHistoryKey(null);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-zinc-50">
       <section className="mx-auto max-w-4xl">
@@ -941,27 +1070,42 @@ function LibraryPage() {
               <p className="text-zinc-400">Ainda não há leitura sincronizada.</p>
             ) : (
               history.map((item) => (
-                <a
-                  className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-amber-400"
-                  href={`/reader/${encodeURIComponent(item.chapter.sourceId)}/${encodeURIComponent(item.chapter.externalId)}?manga=${encodeURIComponent(item.manga.externalId)}&page=${item.page}`}
+                <div
+                  className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4"
                   key={`${item.manga.sourceId}:${item.manga.externalId}`}
                 >
-                  {covers[`${item.manga.sourceId}:${item.manga.externalId}`] && (
-                    <img
-                      alt=""
-                      className="mr-4 h-24 w-16 shrink-0 rounded object-cover"
-                      src={covers[`${item.manga.sourceId}:${item.manga.externalId}`]}
-                    />
-                  )}
-                  <p className="font-medium">
-                    {titles[`${item.manga.sourceId}:${item.manga.externalId}`] ??
-                      item.manga.externalId}
-                  </p>
-                  <p className="mt-1 text-sm text-zinc-400">Página {item.page}</p>
-                  <p className="hidden">
-                    {item.manga.sourceId} · página {item.page}
-                  </p>
-                </a>
+                  <a
+                    className="flex min-w-0 flex-1 items-center hover:text-amber-300"
+                    href={`/reader/${encodeURIComponent(item.chapter.sourceId)}/${encodeURIComponent(item.chapter.externalId)}?manga=${encodeURIComponent(item.manga.externalId)}&page=${item.page}`}
+                  >
+                    {covers[`${item.manga.sourceId}:${item.manga.externalId}`] && (
+                      <img
+                        alt=""
+                        className="mr-4 h-24 w-16 shrink-0 rounded object-cover"
+                        src={covers[`${item.manga.sourceId}:${item.manga.externalId}`]}
+                      />
+                    )}
+                    <div>
+                      <p className="font-medium">
+                        {titles[`${item.manga.sourceId}:${item.manga.externalId}`] ??
+                          item.manga.externalId}
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-400">
+                        Página {item.page}
+                      </p>
+                    </div>
+                  </a>
+                  <button
+                    className="ml-3 shrink-0 rounded border border-zinc-700 px-3 py-2 text-xs text-zinc-300 hover:border-red-400 hover:text-red-300 disabled:opacity-50"
+                    disabled={removingHistoryKey === `${item.manga.sourceId}:${item.manga.externalId}`}
+                    onClick={() => void removeHistoryEntry(item)}
+                    type="button"
+                  >
+                    {removingHistoryKey === `${item.manga.sourceId}:${item.manga.externalId}`
+                      ? "Removendo…"
+                      : "Remover"}
+                  </button>
+                </div>
               ))
             )}
           </div>

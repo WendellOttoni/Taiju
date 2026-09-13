@@ -176,7 +176,13 @@ describe("GET /health", () => {
             search: async () => ({
               failedSourceIds: [],
               hasNextPage: false,
-              items: [],
+              items: [
+                {
+                  source: { externalId: "search", sourceId: source.id },
+                  tags: [],
+                  title: "Restricted search result",
+                },
+              ],
             }),
           };
         },
@@ -244,6 +250,17 @@ describe("GET /health", () => {
     }>;
     expect(
       adultItems.map((item) => item.items[0]?.source.sourceId),
+    ).toEqual(["adult.source:2", "mixed.source:3"]);
+    const adultSearch = await testApp.request(
+      "http://localhost/api/manga/search?q=secret&source=all&content=adult",
+      { headers: { Authorization: "Bearer allowed" } },
+    );
+    expect(adultSearch.status).toBe(200);
+    const adultSearchItems = (await adultSearch.json()).items as Array<{
+      items: Array<{ source: { sourceId: string } }>;
+    }>;
+    expect(
+      adultSearchItems.map((item) => item.items[0]?.source.sourceId),
     ).toEqual(["adult.source:2", "mixed.source:3"]);
   });
 

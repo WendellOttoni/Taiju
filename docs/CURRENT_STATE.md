@@ -118,6 +118,10 @@ Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir 
   Os badges permitem alternar entre todas as fontes e o feed paginado de uma
   fonte restrita específica. A rota permanece sem conteúdo para as demais
   sessões porque a seleção adulta também é aplicada na API.
+- A área `/adult` também oferece busca agregada somente nas fontes restritas,
+  respeitando o badge de fonte selecionado.
+- A biblioteca permite remover uma entrada de histórico e seu progresso salvo
+  sem remover o favorito correspondente.
 
 ## Current phase
 
