@@ -204,6 +204,20 @@ Se essa rota retornar `400` com `Expected URL scheme`, o erro vem da extensão
 do Suwayomi ao resolver a URL original da imagem; não é falha de HTTPS ou do
 Caddy. Registre a fonte e o ID afetados antes de investigar a extensão.
 
+Para executar uma varredura de todas as fontes, incluindo pesquisa, detalhes,
+capítulos, páginas e uma requisição real de thumbnail:
+
+```bash
+docker compose --env-file deployment/.env.production -f compose.production.yml \
+  exec api bun scripts/validate-sources.ts "solo leveling"
+```
+
+Troque o texto da pesquisa por um título que exista nas fontes. O comando é
+intencionalmente sequencial para não sobrecarregar sites de origem. `failed` em
+thumbnail significa que a fonte retornou uma URL de capa inválida, HTTP 4xx/5xx
+ou conteúdo que não é imagem; `skipped` significa que a pesquisa não encontrou
+um título para testar a capa.
+
 ### Vercel
 
 O frontend está em `apps/web`. O projeto Vercel usa Root Directory `apps/web`,
