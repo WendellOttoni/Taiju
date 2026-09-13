@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { MiwayomiClient, MiwayomiClientError } from "../src";
+import {
+  MiwayomiClient,
+  MiwayomiClientError,
+  MiwayomiContentUnavailableError,
+} from "../src";
 
 test("MiwayomiClient maps anime sources, catalog entries, episodes and streams", async () => {
   const paths: string[] = [];
@@ -120,6 +124,17 @@ test("MiwayomiClient translates runtime failures", async () => {
   });
 
   await expect(client.listSources()).rejects.toBeInstanceOf(MiwayomiClientError);
+});
+
+test("MiwayomiClient reports episodes without streams as unavailable", async () => {
+  const client = new MiwayomiClient({
+    baseUrl: "http://miwayomi.test",
+    fetch: async () => json({ videos: [] }),
+  });
+
+  await expect(client.streams("1", "/episode/1")).rejects.toBeInstanceOf(
+    MiwayomiContentUnavailableError,
+  );
 });
 
 function json(value: unknown) {

@@ -34,6 +34,10 @@ export class MiwayomiClientTimeoutError extends MiwayomiClientError {
   override name = "MiwayomiClientTimeoutError";
 }
 
+export class MiwayomiContentUnavailableError extends MiwayomiClientError {
+  override name = "MiwayomiContentUnavailableError";
+}
+
 const runtimeSourceSchema = z.object({
   id: z.string().trim().min(1),
   lang: z.string().trim().min(1),
@@ -180,6 +184,10 @@ export class MiwayomiClient {
         url: episodeUrl,
       }),
     );
+    if (payload.videos.length === 0)
+      throw new MiwayomiContentUnavailableError(
+        "The source did not return playable streams for this episode.",
+      );
     return animeStreamResponseSchema.parse({
       items: payload.videos.map((video) => ({
         audioTracks: video.audioTracks.map(mapTrack),

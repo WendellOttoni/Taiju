@@ -34,6 +34,7 @@ import {
   MangaDexHttpError,
   type MiwayomiClient,
   MiwayomiClientError,
+  MiwayomiContentUnavailableError,
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
@@ -1347,6 +1348,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         503,
         "source_runtime_unavailable",
         "The selected source is unavailable.",
+      );
+    if (error instanceof MiwayomiContentUnavailableError)
+      return jsonError(
+        context,
+        404,
+        "content_unavailable",
+        "This episode has no playable video in the selected source.",
       );
     if (error instanceof MiwayomiClientError)
       return jsonError(
