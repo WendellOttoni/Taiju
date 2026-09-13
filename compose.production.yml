@@ -37,13 +37,22 @@ services:
   miwayomi:
     image: ghcr.io/miwayomi/miwayomi:latest
     environment:
-      FLARESOLVERR_URL: ""
+      FLARESOLVERR_URL: http://flaresolverr:8191
       JAVA_OPTS: -Xms64m -Xmx512m -XX:+UseSerialGC
+    depends_on:
+      flaresolverr:
+        condition: service_started
     ports:
       - "127.0.0.1:4568:4567"
     restart: unless-stopped
     volumes:
       - miwayomi_data:/data
+
+  flaresolverr:
+    image: ghcr.io/miwayomi/flaresolverr:latest
+    environment:
+      LOG_LEVEL: info
+    restart: unless-stopped
 
   api:
     build:

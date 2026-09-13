@@ -94,8 +94,11 @@ cookies e preferências ficam no volume persistente `miwayomi_data`; não os
 versione nem os exponha através do Caddy.
 
 O Taiju lê apenas as fontes de anime já instaladas e expõe contratos próprios
-de busca, detalhes, episódios, streams, biblioteca e progresso. Uma fonte
-indisponível não afeta o fluxo de mangás.
+de busca, detalhes, episódios, streams, biblioteca e progresso. Para fontes
+que apresentem um desafio Cloudflare, o sidecar interno FlareSolverr é iniciado
+automaticamente e só pode ser acessado pela rede Docker. Ele não abre portas
+públicas; ainda assim, use apenas fontes cujo acesso seja permitido pelos
+respectivos termos. Uma fonte indisponível não afeta o fluxo de mangás.
 
 ## Backups
 

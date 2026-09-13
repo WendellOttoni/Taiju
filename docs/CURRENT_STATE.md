@@ -172,3 +172,7 @@ contratos Taiju para fontes, catálogo, detalhes, episódios, streams, faixas de
 rotas API sob `/api/anime`; interface web sob `/anime`; e persistência própria
 em PostgreSQL. O sidecar Miwayomi é opcional localmente e privado no deploy,
 portanto a ausência dele não impede a operação de mangás.
+
+No deploy de produção, o Miwayomi usa o sidecar interno FlareSolverr para
+resolver desafios Cloudflare das fontes que o permitam. O serviço não possui
+porta publicada e não participa do caminho de mangás.
