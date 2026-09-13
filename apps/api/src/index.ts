@@ -1,9 +1,12 @@
 import {
+  createAnimeLibraryRepository,
+  createAnimeWatchHistoryRepository,
   createAuthUserRepository,
   createDatabase,
   createHistoryRepository,
   createLibraryRepository,
 } from "@taiju/database";
+import { MiwayomiClient } from "@taiju/providers";
 import { SuwayomiRuntimeClient, SuwayomiSourceDirectory } from "@taiju/sources";
 import { serve } from "bun";
 import { createApp } from "./app";
@@ -30,11 +33,22 @@ const sources =
         new SuwayomiRuntimeClient({
           baseUrl: environment.SUWAYOMI_URL,
           publicBaseUrl: environment.SUWAYOMI_PUBLIC_URL,
-        }),
-      );
+      }),
+    );
+const anime =
+  environment.MIWAYOMI_URL === undefined
+    ? undefined
+    : new MiwayomiClient({ baseUrl: environment.MIWAYOMI_URL });
 
 const app = createApp({
   adultContentEmails: environment.ADULT_CONTENT_EMAILS,
+  anime,
+  animeLibrary:
+    database === undefined ? undefined : createAnimeLibraryRepository(database),
+  animeWatchHistory:
+    database === undefined
+      ? undefined
+      : createAnimeWatchHistoryRepository(database),
   auth,
   history:
     database === undefined ? undefined : createHistoryRepository(database),

@@ -15,6 +15,16 @@ export {
   type LibraryRepository,
 } from "./library-repository";
 export {
+  createAnimeLibraryRepository,
+  createAnimeWatchHistoryRepository,
+  type AnimeLibraryEntry,
+  type AnimeLibraryRepository,
+  type AnimeWatchHistoryEntry,
+  type AnimeWatchHistoryRepository,
+} from "./anime-repository";
+export {
+  animeLibraryEntries,
+  animeWatchHistory,
   libraryEntries,
   passwordCredentials,
   profiles,

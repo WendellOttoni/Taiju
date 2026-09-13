@@ -16,18 +16,19 @@ import {
 } from "@taiju/contracts";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AnimePage } from "./AnimePage";
 import {
   buildDiscoveryUrl,
   buildSearchUrl,
   parseDiscoveryResponse,
   parseSearchResponse,
 } from "./discovery";
+import { authenticatedHeaders, authTokenKey } from "./lib/auth";
 
 const debounceMs = 350;
 const readerPreferencesKey = "taiju:reader-preferences";
 const sourcePreferenceKey = "taiju:source-preference";
 const languagePreferenceKey = "taiju:language-preference";
-const authTokenKey = "taiju:auth-token";
 const authChangedEvent = "taiju:auth-changed";
 
 type ReaderPreferences = {
@@ -60,11 +61,6 @@ function loadReaderPreferences(): ReaderPreferences {
   }
 }
 
-function authenticatedHeaders() {
-  const token = localStorage.getItem(authTokenKey);
-  return token ? { Authorization: `Bearer ${token}` } : undefined;
-}
-
 export function App() {
   const readerMatch = window.location.pathname.match(
     /^\/reader\/([^/]+)\/([^/]+)$/,
@@ -81,6 +77,11 @@ export function App() {
   }
   if (window.location.pathname === "/library") return <LibraryPage />;
   if (window.location.pathname === "/adult") return <AdultPage />;
+  if (
+    window.location.pathname === "/anime" ||
+    window.location.pathname.startsWith("/anime/")
+  )
+    return <AnimePage />;
   const match = window.location.pathname.match(/^\/manga\/([^/]+)\/([^/]+)$/);
   if (match === null) return <SearchPage />;
   const [, provider, id] = match;
@@ -253,6 +254,11 @@ function SearchPage() {
     <main className="min-h-screen bg-zinc-950 px-6 py-16 text-zinc-50">
       <section className="mx-auto max-w-6xl">
         <AuthPanel />
+        <nav className="mb-6 flex gap-4 text-sm">
+          <a className="text-zinc-300 underline" href="/anime">
+            Animes
+          </a>
+        </nav>
         {hasAdultAccess && (
           <nav className="mb-6 flex gap-4 text-sm">
             <a className="text-rose-300 underline" href="/adult">

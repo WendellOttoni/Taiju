@@ -165,3 +165,10 @@ de autenticaÃ§Ã£o foi adaptado para telas pequenas, com campos de largura to
 no celular, autocomplete, alvos de toque maiores e orientaÃ§Ã£o sobre o tamanho
 da senha. A sessÃ£o Ã© atualizada sem recarregar a pÃ¡gina inteira apÃ³s entrar ou
 sair.
+
+O primeiro fluxo de anime está implementado separadamente do leitor de mangás:
+contratos Taiju para fontes, catálogo, detalhes, episódios, streams, faixas de
+áudio/legenda, biblioteca e progresso; cliente isolado para o runtime Miwayomi;
+rotas API sob `/api/anime`; interface web sob `/anime`; e persistência própria
+em PostgreSQL. O sidecar Miwayomi é opcional localmente e privado no deploy,
+portanto a ausência dele não impede a operação de mangás.

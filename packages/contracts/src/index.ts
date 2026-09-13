@@ -1,5 +1,36 @@
 export type { AuthCredentials, AuthenticatedUser } from "./auth";
 export { authCredentialsSchema, authenticatedUserSchema } from "./auth";
+export type {
+  AnimeDetails,
+  AnimeEpisode,
+  AnimeEpisodeList,
+  AnimeLibraryEntry,
+  AnimeSearchQuery,
+  AnimeSearchResponse,
+  AnimeSource,
+  AnimeStream,
+  AnimeStreamResponse,
+  AnimeSummary,
+  AnimeTrack,
+  AnimeWatchProgress,
+} from "./anime";
+export {
+  animeDetailsSchema,
+  animeEpisodeListSchema,
+  animeEpisodeSchema,
+  animeLibraryEntrySchema,
+  animeLibraryResponseSchema,
+  animeSearchQuerySchema,
+  animeSearchResponseSchema,
+  animeSourceListResponseSchema,
+  animeSourceSchema,
+  animeStreamResponseSchema,
+  animeStreamSchema,
+  animeSummarySchema,
+  animeTrackSchema,
+  animeWatchHistoryResponseSchema,
+  animeWatchProgressSchema,
+} from "./anime";
 export type { LibraryEntry } from "./library";
 export { libraryEntrySchema, libraryResponseSchema } from "./library";
 export type {

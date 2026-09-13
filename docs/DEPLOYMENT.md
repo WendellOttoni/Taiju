@@ -76,9 +76,30 @@ Então acesse `http://localhost:4567`, adicione a loja Project Nox e instale as
 fontes. Os dados do Suwayomi persistem no volume `suwayomi_data` mesmo após
 atualizações dos containers.
 
+## Configurar fontes de anime
+
+O Miwayomi executa extensões no formato Aniyomi em um container separado e não
+fica exposto publicamente. Ele usa a porta local `4568` da VPS, preservando a
+porta `4567` para o Suwayomi e os mangás.
+
+Abra um túnel SSH na máquina administrativa:
+
+```bash
+ssh -L 4568:127.0.0.1:4568 usuario@IP_DO_VPS
+```
+
+Depois abra `http://localhost:4568`, adicione somente repositórios de extensões
+que você confia e instale as fontes desejadas pela interface do runtime. Os APKs,
+cookies e preferências ficam no volume persistente `miwayomi_data`; não os
+versione nem os exponha através do Caddy.
+
+O Taiju lê apenas as fontes de anime já instaladas e expõe contratos próprios
+de busca, detalhes, episódios, streams, biblioteca e progresso. Uma fonte
+indisponível não afeta o fluxo de mangás.
+
 ## Backups
 
-Faça backups regulares do PostgreSQL e do volume do Suwayomi antes de atualizar
+Faça backups regulares do PostgreSQL e dos volumes do Suwayomi e Miwayomi antes de atualizar
 fontes ou o servidor. A conta, favoritos e progresso usados localmente não são
 migrados automaticamente para o banco novo de produção; isso exige uma
 migração de dados separada.

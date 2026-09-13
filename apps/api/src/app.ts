@@ -1,10 +1,13 @@
 import type {
+  AnimeSearchQuery,
   AuthenticatedUser,
   SourceMangaSummary,
   SourceSearchResponse,
   SourceSummary,
 } from "@taiju/contracts";
 import {
+  animeSearchQuerySchema,
+  animeWatchProgressSchema,
   authCredentialsSchema,
   chapterFeedQuerySchema,
   mangaSearchQuerySchema,
@@ -16,6 +19,8 @@ import {
   sourceSearchQuerySchema,
 } from "@taiju/contracts";
 import type {
+  AnimeLibraryRepository,
+  AnimeWatchHistoryRepository,
   HistoryRepository,
   LibraryRepository,
   RuntimeValidationRepository,
@@ -27,6 +32,8 @@ import {
   MangaDexClient,
   MangaDexContentUnavailableError,
   MangaDexHttpError,
+  type MiwayomiClient,
+  MiwayomiClientError,
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
@@ -48,6 +55,12 @@ import { jsonError } from "./http/errors";
 
 export type ApiDependencies = {
   adultContentEmails?: readonly string[];
+  anime?: Pick<
+    MiwayomiClient,
+    "details" | "episodes" | "listSources" | "search" | "streams"
+  >;
+  animeLibrary?: AnimeLibraryRepository;
+  animeWatchHistory?: AnimeWatchHistoryRepository;
   auth?: AuthService;
   history?: HistoryRepository;
   library?: LibraryRepository;
@@ -58,6 +71,9 @@ export type ApiDependencies = {
 };
 
 export function createApp(dependencies: ApiDependencies = {}) {
+  const anime = dependencies.anime;
+  const animeLibrary = dependencies.animeLibrary;
+  const animeWatchHistory = dependencies.animeWatchHistory;
   const mangaDexClient = dependencies.mangaDexClient ?? new MangaDexClient();
   const adultContentEmails = new Set(
     (dependencies.adultContentEmails ?? []).map((email) =>
@@ -86,6 +102,230 @@ export function createApp(dependencies: ApiDependencies = {}) {
   app.get("/health", (context) =>
     context.json({ status: "ok", service: "taiju-api" }),
   );
+  app.get("/api/anime/sources", async (context) => {
+    if (anime === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The anime runtime is unavailable.",
+      );
+    return context.json({ items: await anime.listSources() });
+  });
+  app.get("/api/anime/search", async (context) => {
+    if (anime === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The anime runtime is unavailable.",
+      );
+    const sourceId = context.req.query("source")?.trim();
+    if (!validAnimeSourceId(sourceId))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Select a valid anime source.",
+      );
+    const query = parseAnimeSearchQuery(context);
+    if (query instanceof Response) return query;
+    return context.json(await anime.search(sourceId, query));
+  });
+  app.get("/api/anime/:sourceId/:animeId", async (context) => {
+    if (anime === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The anime runtime is unavailable.",
+      );
+    const sourceId = context.req.param("sourceId");
+    const animeId = context.req.param("animeId");
+    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(animeId))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime reference.",
+      );
+    return context.json(await anime.details(sourceId, animeId));
+  });
+  app.get("/api/anime/:sourceId/:animeId/episodes", async (context) => {
+    if (anime === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The anime runtime is unavailable.",
+      );
+    const sourceId = context.req.param("sourceId");
+    const animeId = context.req.param("animeId");
+    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(animeId))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime reference.",
+      );
+    return context.json(await anime.episodes(sourceId, animeId));
+  });
+  app.get("/api/anime/episodes/:sourceId/:episodeId/streams", async (context) => {
+    if (anime === undefined)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The anime runtime is unavailable.",
+      );
+    const sourceId = context.req.param("sourceId");
+    const episodeId = context.req.param("episodeId");
+    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(episodeId))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime episode reference.",
+      );
+    return context.json(await anime.streams(sourceId, episodeId));
+  });
+  app.get("/api/anime/library", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (animeLibrary === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Anime library persistence is unavailable.",
+      );
+    const items = await animeLibrary.list(user.id);
+    return context.json({
+      items: items.map((item) => ({
+        anime: {
+          externalId: item.animeExternalId,
+          sourceId: item.sourceId,
+        },
+        createdAt: item.createdAt.toISOString(),
+      })),
+    });
+  });
+  app.put("/api/anime/library/:sourceId/:animeId", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (animeLibrary === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Anime library persistence is unavailable.",
+      );
+    const sourceId = context.req.param("sourceId");
+    const animeId = context.req.param("animeId");
+    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(animeId))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime reference.",
+      );
+    await animeLibrary.add(user.id, sourceId, animeId);
+    return context.body(null, 204);
+  });
+  app.delete("/api/anime/library/:sourceId/:animeId", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (animeLibrary === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Anime library persistence is unavailable.",
+      );
+    const sourceId = context.req.param("sourceId");
+    const animeId = context.req.param("animeId");
+    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(animeId))
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime reference.",
+      );
+    await animeLibrary.remove(user.id, sourceId, animeId);
+    return context.body(null, 204);
+  });
+  app.get("/api/anime/watch-history", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (animeWatchHistory === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Anime watch history persistence is unavailable.",
+      );
+    const items = await animeWatchHistory.list(user.id);
+    return context.json({
+      items: items.map((item) => ({
+        anime: {
+          externalId: item.animeExternalId,
+          sourceId: item.sourceId,
+        },
+        durationSeconds: item.durationSeconds,
+        episode: {
+          externalId: item.episodeExternalId,
+          sourceId: item.sourceId,
+        },
+        positionSeconds: item.positionSeconds,
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+    });
+  });
+  app.put("/api/anime/watch-progress", async (context) => {
+    const user = await authenticatedUser(context, auth);
+    if (user instanceof Response) return user;
+    if (animeWatchHistory === undefined)
+      return jsonError(
+        context,
+        503,
+        "authentication_unavailable",
+        "Anime watch history persistence is unavailable.",
+      );
+    const body = await readJsonBody(context);
+    if (body instanceof Response) return body;
+    const parsed = animeWatchProgressSchema.safeParse(body);
+    if (!parsed.success)
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime watch progress.",
+      );
+    if (
+      !validAnimeSourceId(parsed.data.anime.sourceId) ||
+      !validAnimeSourceId(parsed.data.episode.sourceId) ||
+      parsed.data.anime.sourceId !== parsed.data.episode.sourceId ||
+      !validAnimeExternalId(parsed.data.anime.externalId) ||
+      !validAnimeExternalId(parsed.data.episode.externalId)
+    )
+      return jsonError(
+        context,
+        400,
+        "validation_error",
+        "Invalid anime watch progress.",
+      );
+    await animeWatchHistory.save(user.id, {
+      animeExternalId: parsed.data.anime.externalId,
+      durationSeconds:
+        parsed.data.durationSeconds === undefined
+          ? undefined
+          : Math.floor(parsed.data.durationSeconds),
+      episodeExternalId: parsed.data.episode.externalId,
+      positionSeconds: Math.floor(parsed.data.positionSeconds),
+      sourceId: parsed.data.anime.sourceId,
+    });
+    return context.body(null, 204);
+  });
   app.post("/api/auth/register", async (context) => {
     if (auth === undefined)
       return jsonError(
@@ -1108,6 +1348,13 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "source_runtime_unavailable",
         "The selected source is unavailable.",
       );
+    if (error instanceof MiwayomiClientError)
+      return jsonError(
+        context,
+        503,
+        "source_runtime_unavailable",
+        "The anime source is unavailable.",
+      );
     if (error instanceof AuthenticationError)
       return jsonError(context, 401, "unauthorized", error.message);
     if (error instanceof EmailAlreadyRegisteredError)
@@ -1251,6 +1498,23 @@ async function readJsonBody(context: Context): Promise<unknown | Response> {
       "Envie um corpo JSON válido.",
     );
   }
+}
+
+function parseAnimeSearchQuery(
+  context: Context,
+): AnimeSearchQuery | Response {
+  const page = context.req.query("page");
+  const parsed = animeSearchQuerySchema.safeParse({
+    page: page === undefined ? undefined : Number(page),
+    query: context.req.query("q"),
+  });
+  if (parsed.success) return parsed.data;
+  return jsonError(
+    context,
+    400,
+    "validation_error",
+    "Provide a valid anime search query.",
+  );
 }
 
 function formatValidationDetails(
@@ -1471,5 +1735,18 @@ function validSourceRef(value: { externalId: string; sourceId: string }) {
     value.externalId.length <= 500 &&
     value.sourceId.trim().length > 0 &&
     value.sourceId.length <= 500
+  );
+}
+
+function validAnimeSourceId(value: string | undefined): value is string {
+  return value !== undefined && /^-?\d{1,20}$/.test(value);
+}
+
+function validAnimeExternalId(value: string | undefined): value is string {
+  return (
+    value !== undefined &&
+    value.trim().length > 0 &&
+    value.length <= 2_000 &&
+    !value.includes("\u0000")
   );
 }

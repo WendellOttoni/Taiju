@@ -50,6 +50,13 @@
       "when": 1789239240000,
       "tag": "0006_source_neutral_persistence",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789329600000,
+      "tag": "0007_anime_persistence",
+      "breakpoints": true
     }
   ]
 }

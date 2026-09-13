@@ -19,6 +19,7 @@ const environmentSchema = z.object({
     .pipe(z.array(z.email())),
   AUTH_JWT_SECRET: z.string().min(32).optional(),
   DATABASE_URL: z.string().url().optional(),
+  MIWAYOMI_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_000),
   SUWAYOMI_PUBLIC_URL: z.string().url().optional(),
   SUWAYOMI_URL: z.string().url().optional(),

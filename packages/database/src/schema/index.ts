@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -103,6 +104,62 @@ export const readingHistory = pgTable(
       table.mangaProviderId,
     ),
     index("reading_history_user_updated_at_index").on(
+      table.userId,
+      table.updatedAt,
+    ),
+  ],
+);
+
+export const animeLibraryEntries = pgTable(
+  "anime_library_entries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceId: text("source_id").notNull(),
+    animeExternalId: text("anime_external_id").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("anime_library_entries_user_anime_unique").on(
+      table.userId,
+      table.sourceId,
+      table.animeExternalId,
+    ),
+    index("anime_library_entries_user_created_at_index").on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const animeWatchHistory = pgTable(
+  "anime_watch_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceId: text("source_id").notNull(),
+    animeExternalId: text("anime_external_id").notNull(),
+    episodeExternalId: text("episode_external_id").notNull(),
+    positionSeconds: integer("position_seconds").notNull(),
+    durationSeconds: integer("duration_seconds"),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("anime_watch_history_user_episode_unique").on(
+      table.userId,
+      table.sourceId,
+      table.animeExternalId,
+      table.episodeExternalId,
+    ),
+    index("anime_watch_history_user_updated_at_index").on(
       table.userId,
       table.updatedAt,
     ),

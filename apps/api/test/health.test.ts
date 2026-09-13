@@ -95,6 +95,85 @@ describe("GET /health", () => {
     });
   });
 
+  test("maps anime runtime operations through Taiju-owned endpoints", async () => {
+    const testApp = createApp({
+      anime: {
+        details: async (sourceId, animeId) => ({
+          alternativeTitles: [],
+          artists: [],
+          authors: [],
+          source: { externalId: animeId, sourceId },
+          status: "ongoing",
+          tags: ["Action"],
+          title: "Taiju Anime",
+        }),
+        episodes: async (sourceId, animeId) => ({
+          items: [
+            {
+              anime: { externalId: animeId, sourceId },
+              source: { externalId: "/episode/1", sourceId },
+              title: "Episode 1",
+            },
+          ],
+        }),
+        listSources: async () => [
+          { id: "1", language: "en", name: "Anime runtime" },
+        ],
+        search: async (sourceId, query) => ({
+          hasNextPage: query.page < 2,
+          items: [
+            {
+              source: { externalId: "/anime/taiju", sourceId },
+              tags: [],
+              title: query.query,
+            },
+          ],
+        }),
+        streams: async (sourceId, episodeId) => ({
+          items: [
+            {
+              audioTracks: [],
+              isPreferred: true,
+              source: { externalId: episodeId, sourceId },
+              subtitleTracks: [],
+              title: "720p",
+              url: "https://video.example/episode.m3u8",
+            },
+          ],
+        }),
+      },
+    });
+    const sources = await testApp.request("http://localhost/api/anime/sources");
+    expect(sources.status).toBe(200);
+    expect(await sources.json()).toMatchObject({ items: [{ id: "1" }] });
+
+    const search = await testApp.request(
+      "http://localhost/api/anime/search?source=1&q=Taiju&page=1",
+    );
+    expect(search.status).toBe(200);
+    expect(await search.json()).toMatchObject({
+      items: [{ source: { externalId: "/anime/taiju", sourceId: "1" } }],
+    });
+
+    const details = await testApp.request(
+      "http://localhost/api/anime/1/%2Fanime%2Ftaiju",
+    );
+    expect(details.status).toBe(200);
+
+    const episodes = await testApp.request(
+      "http://localhost/api/anime/1/%2Fanime%2Ftaiju/episodes",
+    );
+    expect(episodes.status).toBe(200);
+
+    const streams = await testApp.request(
+      "http://localhost/api/anime/episodes/1/%2Fepisode%2F1/streams",
+    );
+    expect(streams.status).toBe(200);
+    expect(await streams.json()).toMatchObject({
+      items: [{ title: "720p" }],
+    });
+  });
+
   test("exposes restricted sources only to configured authenticated accounts", async () => {
     const descriptor = (
       id: string,
