@@ -15,6 +15,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!deployment/.env.production.example
 deployment/.env.production
 
 # Logs
