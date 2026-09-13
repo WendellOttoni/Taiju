@@ -35,6 +35,7 @@ import {
   type MiwayomiClient,
   MiwayomiClientError,
   MiwayomiContentUnavailableError,
+  MiwayomiPlaybackError,
   resolveChapterPages,
   searchManga,
 } from "@taiju/providers";
@@ -58,8 +59,12 @@ export type ApiDependencies = {
   adultContentEmails?: readonly string[];
   anime?: Pick<
     MiwayomiClient,
-    "details" | "episodes" | "listSources" | "search" | "streams"
-  >;
+    | "details"
+    | "episodes"
+    | "listSources"
+    | "search"
+    | "streams"
+  > & { proxyStream?: MiwayomiClient["proxyStream"] };
   animeLibrary?: AnimeLibraryRepository;
   animeWatchHistory?: AnimeWatchHistoryRepository;
   auth?: AuthService;
@@ -189,6 +194,16 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "Invalid anime episode reference.",
       );
     return context.json(await anime.streams(sourceId, episodeId));
+  });
+  app.get("/api/anime/streams/:sourceId/:episodeId/:streamIndex", async (context) => {
+    if (anime?.proxyStream === undefined)
+      return jsonError(context, 503, "source_runtime_unavailable", "The anime runtime is unavailable.");
+    const sourceId = context.req.param("sourceId");
+    const episodeId = context.req.param("episodeId");
+    const streamIndex = Number(context.req.param("streamIndex"));
+    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(episodeId) || !Number.isInteger(streamIndex) || streamIndex < 0)
+      return jsonError(context, 400, "validation_error", "Invalid anime stream reference.");
+    return anime.proxyStream(sourceId, episodeId, streamIndex, context.req.header("Range"));
   });
   app.get("/api/anime/library", async (context) => {
     const user = await authenticatedUser(context, auth);
@@ -1356,6 +1371,8 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "content_unavailable",
         "This episode has no playable video in the selected source.",
       );
+    if (error instanceof MiwayomiPlaybackError)
+      return jsonError(context, 503, "provider_unavailable", "The video host is unavailable.");
     if (error instanceof MiwayomiClientError)
       return jsonError(
         context,

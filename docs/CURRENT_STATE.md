@@ -139,6 +139,10 @@ See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Known issues
 
+O playback de anime passa pelo backend Taiju, reutilizando somente a URL e os
+cabeçalhos devolvidos pelo Miwayomi para o episódio e aceitando `Range` para
+permitir seek em hosts que exigem `referer` e `user-agent`.
+
 As URLs de imagens já emitidas pelo Suwayomi podem apontar para o proxy público
 de assets ou para o host original da extensão. O controle implementado protege a
 descoberta e todas as operações Taiju por fonte, mas não revoga uma URL de imagem

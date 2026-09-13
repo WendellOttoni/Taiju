@@ -38,6 +38,10 @@ export class MiwayomiContentUnavailableError extends MiwayomiClientError {
   override name = "MiwayomiContentUnavailableError";
 }
 
+export class MiwayomiPlaybackError extends MiwayomiClientError {
+  override name = "MiwayomiPlaybackError";
+}
+
 const runtimeSourceSchema = z.object({
   id: z.string().trim().min(1),
   lang: z.string().trim().min(1),
@@ -88,6 +92,7 @@ const runtimeVideoSchema = z.object({
   subtitleTracks: z.array(runtimeTrackSchema).default([]),
   videoTitle: z.string().trim().min(1),
   videoUrl: z.string().url(),
+  headers: z.record(z.string(), z.string()).default({}),
 });
 
 const runtimeVideosSchema = z.object({ videos: z.array(runtimeVideoSchema) });
@@ -179,11 +184,7 @@ export class MiwayomiClient {
     sourceId: string,
     episodeUrl: string,
   ): Promise<AnimeStreamResponse> {
-    const payload = runtimeVideosSchema.parse(
-      await this.get(`/anime/${encodeURIComponent(sourceId)}/videos`, {
-        url: episodeUrl,
-      }),
-    );
+    const payload = await this.getVideos(sourceId, episodeUrl);
     if (payload.videos.length === 0)
       throw new MiwayomiContentUnavailableError(
         "The source did not return playable streams for this episode.",
@@ -200,6 +201,60 @@ export class MiwayomiClient {
         url: video.videoUrl,
       })),
     });
+  }
+
+  async proxyStream(
+    sourceId: string,
+    episodeUrl: string,
+    streamIndex: number,
+    range?: string,
+  ): Promise<Response> {
+    const payload = await this.getVideos(sourceId, episodeUrl);
+    const video = payload.videos[streamIndex];
+    if (video === undefined)
+      throw new MiwayomiContentUnavailableError("The selected video was not found.");
+
+    const headers = new Headers(video.headers);
+    if (range !== undefined) headers.set("range", range);
+    let response: Response;
+    try {
+      response = await this.fetcher(video.videoUrl, {
+        headers,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch {
+      throw new MiwayomiPlaybackError("The video host could not be reached.");
+    }
+    if (!response.ok && response.status !== 206)
+      throw new MiwayomiPlaybackError(
+        `The video host returned HTTP ${response.status}.`,
+        response.status,
+      );
+
+    const outputHeaders = new Headers();
+    for (const name of [
+      "accept-ranges",
+      "content-length",
+      "content-range",
+      "content-type",
+      "etag",
+      "last-modified",
+    ]) {
+      const value = response.headers.get(name);
+      if (value !== null) outputHeaders.set(name, value);
+    }
+    return new Response(response.body, {
+      headers: outputHeaders,
+      status: response.status,
+    });
+  }
+
+  private async getVideos(sourceId: string, episodeUrl: string) {
+    return runtimeVideosSchema.parse(
+      await this.get(`/anime/${encodeURIComponent(sourceId)}/videos`, {
+        url: episodeUrl,
+      }),
+    );
   }
 
   private async get(path: string, query?: Record<string, string>) {

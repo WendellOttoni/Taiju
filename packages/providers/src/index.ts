@@ -22,4 +22,5 @@ export {
   MiwayomiClientError,
   MiwayomiClientTimeoutError,
   MiwayomiContentUnavailableError,
+  MiwayomiPlaybackError,
 } from "./miwayomi-client";

@@ -332,7 +332,7 @@ function AnimeDetailsPage({
                   className="mt-4 aspect-video w-full rounded-xl bg-black"
                   controls
                   preload="metadata"
-                  src={selectedStream.url}
+                  src={`/api/anime/streams/${encodeURIComponent(sourceId)}/${encodeURIComponent(selectedEpisode?.source.externalId ?? "")}/${streams.indexOf(selectedStream)}`}
                   onTimeUpdate={(event) => {
                     if (selectedEpisode === null || authenticatedHeaders() === undefined)
                       return;

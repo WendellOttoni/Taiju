@@ -137,6 +137,44 @@ test("MiwayomiClient reports episodes without streams as unavailable", async () 
   );
 });
 
+test("MiwayomiClient proxies streams with extension-provided headers and ranges", async () => {
+  let videoRequest: Request | undefined;
+  const client = new MiwayomiClient({
+    baseUrl: "http://miwayomi.test",
+    fetch: async (input, init) => {
+      if (input.toString().includes("/videos"))
+        return json({
+          videos: [
+            {
+              preferred: true,
+              videoTitle: "HD",
+              videoUrl: "https://video.example/episode.mp4",
+              headers: {
+                referer: "https://source.example/",
+                "user-agent": "source-agent",
+              },
+            },
+          ],
+        });
+      videoRequest = new Request(input, init);
+      return new Response("video", {
+        headers: {
+          "content-length": "5",
+          "content-type": "video/mp4",
+        },
+        status: 206,
+      });
+    },
+  });
+
+  const response = await client.proxyStream("1", "/episode/1", 0, "bytes=0-4");
+  expect(response.status).toBe(206);
+  expect(await response.text()).toBe("video");
+  expect(videoRequest?.headers.get("referer")).toBe("https://source.example/");
+  expect(videoRequest?.headers.get("user-agent")).toBe("source-agent");
+  expect(videoRequest?.headers.get("range")).toBe("bytes=0-4");
+});
+
 function json(value: unknown) {
   return new Response(JSON.stringify(value), {
     headers: { "content-type": "application/json" },
