@@ -807,7 +807,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
       );
       if (selectedSources instanceof Response) return selectedSources;
       const page = Math.floor(parsed.data.offset / parsed.data.limit) + 1;
-      const searches = await mapWithConcurrency(selectedSources, 3, (source) =>
+      const searches = await mapWithConcurrency(selectedSources, 10, (source) =>
         source.search({ page, query: parsed.data.query }),
       );
       const fulfilled = searches.filter(
