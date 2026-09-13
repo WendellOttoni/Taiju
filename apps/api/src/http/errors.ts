@@ -16,6 +16,16 @@ export function jsonError(
   status: 400 | 401 | 404 | 409 | 500 | 503,
   code: ApiErrorCode,
   message: string,
+  details?: ReadonlyArray<{ field: string; message: string }>,
 ) {
-  return context.json({ error: { code, message } }, status);
+  return context.json(
+    {
+      error: {
+        code,
+        message,
+        ...(details === undefined || details.length === 0 ? {} : { details }),
+      },
+    },
+    status,
+  );
 }

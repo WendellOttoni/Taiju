@@ -78,6 +78,37 @@ describe("authentication", () => {
     expect(response.status).toBe(401);
   });
 
+  test("explains invalid authentication fields", async () => {
+    const response = await app.request("http://localhost/api/auth/register", {
+      body: JSON.stringify({ email: "not-an-email", password: "short" }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: "validation_error",
+        message: expect.stringContaining("e-mail válido"),
+        details: [
+          { field: "email" },
+          { field: "password" },
+        ],
+      },
+    });
+  });
+
+  test("rejects malformed JSON with a validation error", async () => {
+    const response = await app.request("http://localhost/api/auth/register", {
+      body: "{",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: { code: "validation_error", message: "Envie um corpo JSON válido." },
+    });
+  });
+
   test("saves and reads authenticated source preferences", async () => {
     const register = await app.request("http://localhost/api/auth/register", {
       body: JSON.stringify({

@@ -28,6 +28,7 @@ const readerPreferencesKey = "taiju:reader-preferences";
 const sourcePreferenceKey = "taiju:source-preference";
 const languagePreferenceKey = "taiju:language-preference";
 const authTokenKey = "taiju:auth-token";
+const authChangedEvent = "taiju:auth-changed";
 
 type ReaderPreferences = {
   imageFit: "contain" | "width";
@@ -109,7 +110,16 @@ function SearchPage() {
   const [latest, setLatest] = useState<SourceMangaGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authVersion, setAuthVersion] = useState(0);
 
+  useEffect(() => {
+    const onAuthChanged = () => setAuthVersion((current) => current + 1);
+    window.addEventListener(authChangedEvent, onAuthChanged);
+    return () => window.removeEventListener(authChangedEvent, onAuthChanged);
+  }, []);
+
+  // Re-run when authentication changes so restricted sources are refreshed.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: authVersion intentionally triggers this refresh.
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/sources", {
@@ -139,7 +149,7 @@ function SearchPage() {
           );
       });
     return () => controller.abort();
-  }, []);
+  }, [authVersion]);
 
   useEffect(() => {
     localStorage.setItem(languagePreferenceKey, preferredLanguage);
@@ -822,6 +832,7 @@ function AuthPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [authenticated, setAuthenticated] = useState(
     () => localStorage.getItem(authTokenKey) !== null,
   );
@@ -839,7 +850,7 @@ function AuthPanel() {
             onClick={() => {
               localStorage.removeItem(authTokenKey);
               setAuthenticated(false);
-              window.location.reload();
+              window.dispatchEvent(new Event(authChangedEvent));
             }}
             type="button"
           >
@@ -854,7 +865,9 @@ function AuthPanel() {
       className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
       onSubmit={async (event) => {
         event.preventDefault();
+        if (isSubmitting) return;
         setMessage(null);
+        setIsSubmitting(true);
         try {
           const response = await fetch(`/api/auth/${mode}`, {
             body: JSON.stringify({ email, password }),
@@ -863,7 +876,10 @@ function AuthPanel() {
           });
           const payload = (await response.json()) as {
             token?: string;
-            error?: { message?: string };
+            error?: {
+              message?: string;
+              details?: Array<{ field: string; message: string }>;
+            };
           };
           if (!response.ok || !payload.token)
             throw new Error(
@@ -872,41 +888,52 @@ function AuthPanel() {
           localStorage.setItem(authTokenKey, payload.token);
           setAuthenticated(true);
           setPassword("");
-          window.location.reload();
+          window.dispatchEvent(new Event(authChangedEvent));
         } catch (error) {
           setMessage(
             error instanceof Error
               ? error.message
               : "Não foi possível autenticar.",
           );
+        } finally {
+          setIsSubmitting(false);
         }
       }}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
         <input
+          autoComplete="email"
           aria-label="E-mail"
-          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+          className="min-h-11 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-base outline-none focus:border-amber-400"
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="E-mail"
           required
           type="email"
           value={email}
         />
         <input
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
           aria-label="Senha"
-          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+          className="min-h-11 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-base outline-none focus:border-amber-400"
+          minLength={12}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Senha"
           required
           type="password"
           value={password}
         />
         <button
-          className="rounded-lg bg-amber-400 px-4 py-2 font-semibold text-zinc-950"
+          className="min-h-11 rounded-lg bg-amber-400 px-4 py-2 font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSubmitting}
           type="submit"
         >
-          {mode === "login" ? "Entrar" : "Cadastrar"}
+          {isSubmitting ? "Aguarde..." : mode === "login" ? "Entrar" : "Cadastrar"}
         </button>
+      </div>
+      {mode === "register" && (
+        <p className="mt-2 text-xs text-zinc-400">
+          A senha precisa ter entre 12 e 128 caracteres.
+        </p>
+      )}
+      <div className="mt-3">
         <button
           className="text-sm text-zinc-400 underline"
           onClick={() => setMode(mode === "login" ? "register" : "login")}

@@ -94,13 +94,16 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "authentication_unavailable",
         "Authentication is not configured.",
       );
-    const parsed = authCredentialsSchema.safeParse(await context.req.json());
+    const body = await readJsonBody(context);
+    if (body instanceof Response) return body;
+    const parsed = authCredentialsSchema.safeParse(body);
     if (!parsed.success)
       return jsonError(
         context,
         400,
         "validation_error",
-        "Invalid authentication credentials.",
+        formatValidationMessage(parsed.error.issues),
+        formatValidationDetails(parsed.error.issues),
       );
     return context.json(
       await auth.register(parsed.data.email, parsed.data.password),
@@ -115,13 +118,16 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "authentication_unavailable",
         "Authentication is not configured.",
       );
-    const parsed = authCredentialsSchema.safeParse(await context.req.json());
+    const body = await readJsonBody(context);
+    if (body instanceof Response) return body;
+    const parsed = authCredentialsSchema.safeParse(body);
     if (!parsed.success)
       return jsonError(
         context,
         400,
         "validation_error",
-        "Invalid authentication credentials.",
+        formatValidationMessage(parsed.error.issues),
+        formatValidationDetails(parsed.error.issues),
       );
     return context.json(
       await auth.login(parsed.data.email, parsed.data.password),
@@ -1232,6 +1238,50 @@ async function resolveSourcesForSearch(
       "The source runtime is unavailable.",
     );
   }
+}
+
+async function readJsonBody(context: Context): Promise<unknown | Response> {
+  try {
+    return await context.req.json();
+  } catch {
+    return jsonError(
+      context,
+      400,
+      "validation_error",
+      "Envie um corpo JSON válido.",
+    );
+  }
+}
+
+function formatValidationDetails(
+  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>,
+) {
+  return issues.map((issue) => ({
+    field: issue.path.map(String).join(".") || "form",
+    message: validationMessage(issue),
+  }));
+}
+
+function formatValidationMessage(
+  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>,
+) {
+  const messages = issues
+    .map(validationMessage)
+    .filter((message, index, values) => values.indexOf(message) === index);
+  return messages.length > 0 ? messages.join(" ") : "Confira os campos enviados.";
+}
+
+function validationMessage(issue: { path: ReadonlyArray<PropertyKey>; message: string }) {
+  const field = String(issue.path[0] ?? "");
+  if (field === "email") return "Informe um e-mail válido.";
+  if (field === "password") {
+    if (issue.message.includes("12"))
+      return "A senha precisa ter pelo menos 12 caracteres.";
+    if (issue.message.includes("128"))
+      return "A senha pode ter no máximo 128 caracteres.";
+    return "Informe uma senha válida.";
+  }
+  return "Confira este campo.";
 }
 
 async function optionalAuthenticatedUser(

@@ -158,3 +158,10 @@ Para habilitar fontes dinâmicas localmente, inicie o sidecar Suwayomi e defina
 `SUWAYOMI_URL` (por exemplo, `http://127.0.0.1:4567`) antes de iniciar a API.
 O procedimento completo de instalação local, extensões, rede e diagnóstico está
 em [`LOCAL_SETUP.md`](LOCAL_SETUP.md).
+
+O cadastro e login agora exibem mensagens especÃ­ficas de validaÃ§Ã£o, tratam
+JSON malformado como erro de entrada e impedem envios duplicados. O formulÃ¡rio
+de autenticaÃ§Ã£o foi adaptado para telas pequenas, com campos de largura total
+no celular, autocomplete, alvos de toque maiores e orientaÃ§Ã£o sobre o tamanho
+da senha. A sessÃ£o Ã© atualizada sem recarregar a pÃ¡gina inteira apÃ³s entrar ou
+sair.
