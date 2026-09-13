@@ -797,7 +797,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
       );
     if (sourceId === undefined || sourceId === "")
       return context.json(await searchManga(mangaDexClient, parsed.data));
-    if (sourceId === "all") {
+      if (sourceId === "all") {
       const selectedSources = await resolveSourcesForSearch(
         context,
         sources,
@@ -891,14 +891,22 @@ export function createApp(dependencies: ApiDependencies = {}) {
         content,
       );
       if (selectedSources instanceof Response) return selectedSources;
-      const discoverableSources = selectedSources.filter(
+      const allDiscoverableSources = selectedSources.filter(
         (source) => source.discover !== undefined,
       );
+      const sourceBatchSize = 6;
+      const sourceOffset = (parsed.data.page - 1) * sourceBatchSize;
+      const discoverableSources = allDiscoverableSources.slice(
+        sourceOffset,
+        sourceOffset + sourceBatchSize,
+      );
+      if (discoverableSources.length === 0 && allDiscoverableSources.length > 0)
+        return context.json({ failedSourceIds: [], hasNextPage: false, items: [] });
       const results = await mapWithConcurrency(
         discoverableSources,
         10,
         (source) =>
-          source.discover?.(parsed.data) ??
+          source.discover?.({ ...parsed.data, page: 1 }) ??
           Promise.reject(new Error("Source discovery is unavailable.")),
       );
       const fulfilled = results.filter(
@@ -919,7 +927,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
             ? [discoverableSources[index].descriptor.id]
             : [],
         ),
-        hasNextPage: fulfilled.some((result) => result.value.hasNextPage),
+        hasNextPage: sourceOffset + sourceBatchSize < allDiscoverableSources.length,
         items: groupSourceSearchItems(
           interleaveSourceItems(
             fulfilled.map((result) => result.value.items.slice(0, 20)),
