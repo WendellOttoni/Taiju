@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: taiju
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deployment/.env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in deployment/.env.production}
+    healthcheck:
+      interval: 5s
+      retries: 12
+      start_period: 10s
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      timeout: 5s
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/postgres-init:/docker-entrypoint-initdb.d:ro
+
+  suwayomi:
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    environment:
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deployment/.env.production}
+      DATABASE_TYPE: POSTGRESQL
+      DATABASE_URL: postgresql://db:5432/suwayomi
+      DATABASE_USERNAME: ${POSTGRES_USER:?set POSTGRES_USER in deployment/.env.production}
+      TZ: America/Sao_Paulo
+      WEB_UI_ENABLED: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4567:4567"
+    restart: unless-stopped
+    volumes:
+      - suwayomi_data:/home/suwayomi/.local/share/Tachidesk
+
+  api:
+    build:
+      context: .
+      dockerfile: deployment/api.Dockerfile
+    environment:
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?set AUTH_JWT_SECRET in deployment/.env.production}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/taiju
+      PORT: 3000
+      SUWAYOMI_URL: http://suwayomi:4567
+    depends_on:
+      db:
+        condition: service_healthy
+      suwayomi:
+        condition: service_started
+    healthcheck:
+      interval: 10s
+      retries: 6
+      start_period: 20s
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then((response) => { if (!response.ok) process.exit(1) })"]
+      timeout: 5s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deployment/web.Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      TAIJU_DOMAIN: ${TAIJU_DOMAIN:?set TAIJU_DOMAIN in deployment/.env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_config:
+  caddy_data:
+  postgres_data:
+  suwayomi_data:

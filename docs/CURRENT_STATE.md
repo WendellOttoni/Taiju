@@ -104,6 +104,8 @@ Pagina de detalhes agora exibe fontes alternativas equivalentes e permite abrir 
 
 Source-engine migration started; existing MangaDex flow remains the legacy adapter until subsequent source tasks.
 
+The web frontend is configured in the Vercel project `taiju` with `apps/web` as its root, Vite as the framework, and `bun run build` as the production build command. The first production deployment is live at `https://taiju-one.vercel.app`; API, PostgreSQL, and Suwayomi still require the Docker/VPS deployment described in [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
 ## Next task
 
 Próxima prioridade: validação ao vivo persistente do sidecar e scanner catalog-wide.
