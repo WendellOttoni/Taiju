@@ -896,7 +896,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
       );
       const results = await mapWithConcurrency(
         discoverableSources,
-        6,
+        10,
         (source) =>
           source.discover?.(parsed.data) ??
           Promise.reject(new Error("Source discovery is unavailable.")),
