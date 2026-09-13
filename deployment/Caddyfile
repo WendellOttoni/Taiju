@@ -1,11 +1,13 @@
 {$TAIJU_DOMAIN} {
   encode zstd gzip
 
-  @api path /api/*
-  reverse_proxy @api api:3000
+  route /api/* {
+    reverse_proxy api:3000
+  }
 
-  root * /srv
-  try_files {path} /index.html
-  file_server
+  route {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
 }
-
