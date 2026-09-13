@@ -15,7 +15,6 @@ coverage/
 .env
 .env.*
 !.env.example
-!deployment/.env.production.example
 deployment/.env.production
 
 # Logs
@@ -43,3 +42,4 @@ tmp/
 
 .vercel
 .env*
+!deployment/.env.production.example
