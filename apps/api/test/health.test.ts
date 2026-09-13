@@ -269,11 +269,11 @@ describe("GET /health", () => {
     });
 
     const anonymousList = await testApp.request("http://localhost/api/sources");
-    expect((await anonymousList.json()).items).toHaveLength(1);
+    expect((await anonymousList.json()).items).toHaveLength(2);
     const deniedList = await testApp.request("http://localhost/api/sources", {
       headers: { Authorization: "Bearer denied" },
     });
-    expect((await deniedList.json()).items).toHaveLength(1);
+    expect((await deniedList.json()).items).toHaveLength(2);
     const allowedList = await testApp.request("http://localhost/api/sources", {
       headers: { Authorization: "Bearer allowed" },
     });
@@ -329,7 +329,7 @@ describe("GET /health", () => {
     }>;
     expect(
       adultItems.map((item) => item.items[0]?.source.sourceId),
-    ).toEqual(["adult.source:2", "mixed.source:3"]);
+    ).toEqual(["adult.source:2"]);
     const adultSearch = await testApp.request(
       "http://localhost/api/manga/search?q=secret&source=all&content=adult",
       { headers: { Authorization: "Bearer allowed" } },
@@ -340,7 +340,7 @@ describe("GET /health", () => {
     }>;
     expect(
       adultSearchItems.map((item) => item.items[0]?.source.sourceId),
-    ).toEqual(["adult.source:2", "mixed.source:3"]);
+    ).toEqual(["adult.source:2"]);
   });
 
   test("validates a selected source through all normalized capabilities", async () => {

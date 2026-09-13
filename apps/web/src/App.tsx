@@ -830,7 +830,7 @@ async function loadDiscovery(
 }
 
 function isRestrictedSource(source: SourceSummary) {
-  return source.contentRating === "adult" || source.contentRating === "mixed";
+  return source.contentRating === "adult";
 }
 
 function AuthPanel() {

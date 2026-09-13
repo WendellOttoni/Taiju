@@ -31,6 +31,9 @@ cp deployment/.env.production.example deployment/.env.production
 chmod 600 deployment/.env.production
 ```
 
+Observação: fontes `MIXED` são públicas; somente fontes `NSFW` usam a lista de
+contas autorizadas.
+
 Edite `deployment/.env.production` e preencha:
 
 - `TAIJU_DOMAIN` com o domínio real, sem `https://`;

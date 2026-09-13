@@ -1599,7 +1599,7 @@ function sourceIsAccessible(
 }
 
 function sourceIsRestricted(source: SourceSummary) {
-  return source.contentRating === "adult" || source.contentRating === "mixed";
+  return source.contentRating === "adult";
 }
 
 function userCanAccessAdultContent(
@@ -1615,7 +1615,7 @@ async function listRestrictedSourceIds(sources: SourceDirectory | undefined) {
     (await sources.list())
       .filter(
         (source) =>
-          source.contentRating === "adult" || source.contentRating === "mixed",
+          source.contentRating === "adult",
       )
       .map((source) => source.id),
   );
