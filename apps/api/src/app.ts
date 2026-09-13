@@ -798,6 +798,9 @@ export function createApp(dependencies: ApiDependencies = {}) {
     if (sourceId === undefined || sourceId === "")
       return context.json(await searchManga(mangaDexClient, parsed.data));
       if (sourceId === "all") {
+      const sourceBatch = Number(context.req.query("sourceBatch") ?? "1");
+      if (!Number.isInteger(sourceBatch) || sourceBatch < 1)
+        return jsonError(context, 400, "validation_error", "Invalid search source batch.");
       const selectedSources = await resolveSourcesForSearch(
         context,
         sources,
@@ -806,9 +809,16 @@ export function createApp(dependencies: ApiDependencies = {}) {
         content as "adult" | "safe" | undefined,
       );
       if (selectedSources instanceof Response) return selectedSources;
-      const page = Math.floor(parsed.data.offset / parsed.data.limit) + 1;
-      const searches = await mapWithConcurrency(selectedSources, 10, (source) =>
-        source.search({ page, query: parsed.data.query }),
+      const sourceBatchSize = 10;
+      const sourceOffset = (sourceBatch - 1) * sourceBatchSize;
+      const batchSources = selectedSources.slice(
+        sourceOffset,
+        sourceOffset + sourceBatchSize,
+      );
+      if (batchSources.length === 0)
+        return context.json({ failedSourceIds: [], hasNextPage: false, items: [] });
+      const searches = await mapWithConcurrency(batchSources, 10, (source) =>
+        source.search({ page: 1, query: parsed.data.query }),
       );
       const fulfilled = searches.filter(
         (
@@ -826,11 +836,11 @@ export function createApp(dependencies: ApiDependencies = {}) {
         );
       return context.json({
         failedSourceIds: searches.flatMap((result, index) =>
-          result.status === "rejected" && selectedSources[index] !== undefined
-            ? [selectedSources[index].descriptor.id]
+            result.status === "rejected" && batchSources[index] !== undefined
+            ? [batchSources[index].descriptor.id]
             : [],
         ),
-        hasNextPage: fulfilled.some((result) => result.value.hasNextPage),
+        hasNextPage: sourceOffset + sourceBatchSize < selectedSources.length,
         items: groupSourceSearchItems(
           fulfilled.flatMap((result) => result.value.items),
         ),

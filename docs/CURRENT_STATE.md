@@ -158,6 +158,10 @@ que já tenha sido obtida por uma conta autorizada.
 
 The manga source engine, runtime validation, catalog resilience, source fallback, account preferences, and web authentication flows are implemented and covered by automated checks. Remaining operational work requires a live PostgreSQL migration and a configured Suwayomi instance; anime features remain intentionally out of scope.
 
+Aggregated manga search now queries ten sources per batch. The web client loads
+the next batch automatically near the end of the results while preserving items
+already shown.
+
 Authentication is enabled only when both `DATABASE_URL` and `AUTH_JWT_SECRET` are configured; migrations require a running PostgreSQL instance and were not applied in this workspace.
 
 Anime work is explicitly deferred and outside the current scope.

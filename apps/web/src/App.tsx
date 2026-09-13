@@ -107,11 +107,14 @@ function SearchPage() {
       localStorage.getItem(languagePreferenceKey) === "en" ? "en" : "pt-BR",
   );
   const [failedSourceIds, setFailedSourceIds] = useState<string[]>([]);
+  const [searchBatch, setSearchBatch] = useState(1);
+  const [searchHasNext, setSearchHasNext] = useState(false);
   const [popular, setPopular] = useState<SourceMangaGroup[]>([]);
   const [latest, setLatest] = useState<SourceMangaGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authVersion, setAuthVersion] = useState(0);
+  const searchSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onAuthChanged = () => setAuthVersion((current) => current + 1);
@@ -172,30 +175,48 @@ function SearchPage() {
   }, [sourceId]);
 
   useEffect(() => {
+    setSearchBatch(1);
+    setSearchHasNext(false);
+    setResults([]);
+    setFailedSourceIds([]);
+  }, [query, sourceId]);
+
+  useEffect(() => {
     const normalizedQuery = query.trim();
     if (normalizedQuery.length === 0 || sourceId === "") {
       setResults([]);
       setFailedSourceIds([]);
+      setSearchBatch(1);
+      setSearchHasNext(false);
       setError(null);
       setIsLoading(false);
       return;
     }
 
     const controller = new AbortController();
+    const batch = searchBatch;
     const timeout = window.setTimeout(async () => {
       setIsLoading(true);
       setError(null);
       try {
+        const batchQuery = sourceId === "all" ? `&sourceBatch=${batch}` : "";
         const response = await fetch(
-          `/api/manga/search?q=${encodeURIComponent(normalizedQuery)}&source=${encodeURIComponent(sourceId)}`,
+          `/api/manga/search?q=${encodeURIComponent(normalizedQuery)}&source=${encodeURIComponent(sourceId)}${batchQuery}`,
           { headers: authenticatedHeaders(), signal: controller.signal },
         );
         if (!response.ok) throw new Error("A busca não está disponível agora.");
         const json = await response.json();
         if (sourceId === "all") {
           const payload = sourceGroupedSearchResponseSchema.parse(json);
-          setResults(payload.items);
-          setFailedSourceIds(payload.failedSourceIds);
+          setResults((current) =>
+            batch === 1 ? payload.items : mergeSearchGroups(current, payload.items),
+          );
+          setFailedSourceIds((current) =>
+            batch === 1
+              ? payload.failedSourceIds
+              : [...new Set([...current, ...payload.failedSourceIds])],
+          );
+          setSearchHasNext(payload.hasNextPage);
         } else {
           const payload = sourceSearchResponseSchema.parse(json);
           setResults(
@@ -228,7 +249,24 @@ function SearchPage() {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [query, sourceId]);
+  }, [query, searchBatch, sourceId]);
+
+  useEffect(() => {
+    const sentinel = searchSentinelRef.current;
+    if (
+      sentinel === null ||
+      sourceId !== "all" ||
+      query.trim() === "" ||
+      !searchHasNext
+    )
+      return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting && !isLoading)
+        setSearchBatch((current) => current + 1);
+    }, { rootMargin: "400px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [isLoading, query, searchHasNext, sourceId]);
 
   useEffect(() => {
     if (sources.length === 0) return;
@@ -419,6 +457,11 @@ function SearchPage() {
             </article>
           ))}
         </div>
+        {query.trim() !== "" && sourceId === "all" && searchHasNext && (
+          <div ref={searchSentinelRef} className="mt-8 min-h-12 text-center text-sm text-zinc-400" role="status">
+            {isLoading ? "Carregando mais fontesâ€¦" : "Role para carregar mais"}
+          </div>
+        )}
       </section>
     </main>
   );
@@ -841,6 +884,30 @@ async function loadDiscovery(
 
 function isRestrictedSource(source: SourceSummary) {
   return source.contentRating === "adult";
+}
+
+function mergeSearchGroups(
+  current: SourceMangaGroup[],
+  incoming: SourceMangaGroup[],
+) {
+  const groups = new Map(current.map((group) => [group.key, group]));
+  for (const group of incoming) {
+    const previous = groups.get(group.key);
+    if (previous === undefined) {
+      groups.set(group.key, group);
+      continue;
+    }
+    const items = new Map(
+      previous.items.map((item) => [
+        `${item.source.sourceId}:${item.source.externalId}`,
+        item,
+      ]),
+    );
+    for (const item of group.items)
+      items.set(`${item.source.sourceId}:${item.source.externalId}`, item);
+    groups.set(group.key, { ...previous, items: [...items.values()] });
+  }
+  return [...groups.values()];
 }
 
 function AuthPanel() {
