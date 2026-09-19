@@ -206,6 +206,9 @@ arquivo gera erro em vez de devolver o filme inteiro e reiniciar o player. O
 timeout do proxy vale para estabelecer a conexão com o host, sem interromper
 o corpo de uma resposta de vídeo longa após 30 segundos. O ID de playback é
 ocultado dos logs de requisições e erros da API.
+Durante a atualização separada do frontend e da API, a web aceita tanto o
+contrato antigo com URL quanto o novo com ID de playback. A proteção completa
+de sessões independentes passa a valer quando a API da VPS também é atualizada.
 Ainda falta verificar a reprodução simultânea com uma fonte e um host reais;
 um host que invalide a URL já entregue quando outra pessoa inicia uma sessão
 continua fora do controle do Taiju.

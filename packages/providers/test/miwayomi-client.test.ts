@@ -212,6 +212,8 @@ test("MiwayomiClient keeps concurrent viewers on their own resolved video", asyn
   const second = (await client.streams("1", "/episode/1")).items[0];
   if (first === undefined || second === undefined)
     throw new Error("Missing playback session.");
+  if (first.playbackId === undefined || second.playbackId === undefined)
+    throw new Error("Missing playback identifier.");
   expect(first.playbackId).not.toBe(second.playbackId);
   expect("url" in first).toBe(false);
   await client.proxyStream(first.playbackId, "bytes=100-");
