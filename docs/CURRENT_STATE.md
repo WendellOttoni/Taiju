@@ -195,3 +195,35 @@ O Miwayomi de produção usa `-Xverify:none` para permitir o carregamento de
 extensões Aniyomi que o conversor DEX→JVM entrega com stackmaps inválidos.
 Esse ajuste foi validado com a extensão Hianimes: a fonte aparece, pesquisa e
 lista episódios; a resolução de vídeos ainda depende do hoster da fonte.
+
+O playback de anime agora recebe um identificador opaco por seleção de stream.
+Cada sessão mantém a URL e os cabeçalhos resolvidos pelo Miwayomi para aquele
+player, sem consultar novamente `/videos` em cada pedido de `Range`. As sessões
+expiram após 12 horas sem uso, são limitadas em memória e não são reutilizadas
+entre espectadores. Respostas de vídeo e de seleção de streams não são
+armazenadas em cache. Um host que ignore um pedido de trecho após o início do
+arquivo gera erro em vez de devolver o filme inteiro e reiniciar o player. O
+timeout do proxy vale para estabelecer a conexão com o host, sem interromper
+o corpo de uma resposta de vídeo longa após 30 segundos. O ID de playback é
+ocultado dos logs de requisições e erros da API.
+Ainda falta verificar a reprodução simultânea com uma fonte e um host reais;
+um host que invalide a URL já entregue quando outra pessoa inicia uma sessão
+continua fora do controle do Taiju.
+
+Uma checagem limitada no deploy anterior, com um filme da fonte CineVEO,
+confirmou que duas consultas seguidas a `/videos` devolviam URLs com query
+diferente para o mesmo host e caminho. Uma requisição de um byte à primeira URL
+continuou retornando `206` após a segunda resolução. Isso confirma a troca de
+URL que o proxy antigo podia fazer, mas não reproduz por si só o reset após
+40 minutos relatado por um usuário. Um trecho de 64 KiB em um ponto avançado
+era idêntico nas duas URLs. Quatro pedidos `Range` simultâneos, alternando
+o começo e um ponto avançado pelo proxy público Vercel, também retornaram
+os respectivos `Content-Range` corretos. O filme e a fonte do incidente real
+ainda são necessários para verificar a causa específica.
+
+Em um teste de navegador com duas abas no deploy anterior, a primeira
+reprodução do mesmo filme da CineVEO continuou em torno de 40 minutos, mas a
+segunda recebeu `404 content_unavailable` em um pedido `Range` posterior e o
+elemento de vídeo registrou erro de rede. Isso demonstra uma falha real causada
+pela resolução repetida de `/videos` durante o playback; não reproduziu o reset
+exato da primeira reprodução relatado pelo usuário.

@@ -61,11 +61,11 @@ export const animeStreamSchema = z.object({
   audioTracks: z.array(animeTrackSchema),
   bitrate: z.number().int().positive().optional(),
   isPreferred: z.boolean(),
+  playbackId: z.string().uuid(),
   quality: z.number().int().positive().optional(),
   source: sourceRefSchema,
   subtitleTracks: z.array(animeTrackSchema),
   title: z.string().trim().min(1),
-  url: z.string().url(),
 });
 
 export const animeStreamResponseSchema = z.object({

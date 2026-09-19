@@ -97,11 +97,21 @@ const runtimeVideoSchema = z.object({
 
 const runtimeVideosSchema = z.object({ videos: z.array(runtimeVideoSchema) });
 
+type PlaybackSession = {
+  headers: Record<string, string>;
+  lastUsedAt: number;
+  url: string;
+};
+
+const playbackSessionIdleMs = 12 * 60 * 60 * 1_000;
+const maxPlaybackSessions = 10_000;
+
 /** Isolated HTTP boundary for the Miwayomi Aniyomi-extension runtime. */
 export class MiwayomiClient {
   private readonly baseUrl: string;
   private readonly fetcher: NonNullable<MiwayomiClientOptions["fetch"]>;
   private readonly timeoutMs: number;
+  private readonly playbackSessions = new Map<string, PlaybackSession>();
 
   constructor(options: MiwayomiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
@@ -189,47 +199,75 @@ export class MiwayomiClient {
       throw new MiwayomiContentUnavailableError(
         "The source did not return playable streams for this episode.",
       );
+    this.prunePlaybackSessions();
+    if (this.playbackSessions.size + payload.videos.length > maxPlaybackSessions)
+      throw new MiwayomiClientError("The playback session limit was reached.");
     return animeStreamResponseSchema.parse({
-      items: payload.videos.map((video) => ({
-        audioTracks: video.audioTracks.map(mapTrack),
-        bitrate: video.bitrate ?? undefined,
-        isPreferred: video.preferred,
-        quality: video.resolution ?? undefined,
-        source: { externalId: episodeUrl, sourceId },
-        subtitleTracks: video.subtitleTracks.map(mapTrack),
-        title: video.videoTitle,
-        url: video.videoUrl,
-      })),
+      items: payload.videos.map((video) => {
+        const playbackId = crypto.randomUUID();
+        this.playbackSessions.set(playbackId, {
+          headers: { ...video.headers },
+          lastUsedAt: Date.now(),
+          url: video.videoUrl,
+        });
+        return {
+          audioTracks: video.audioTracks.map(mapTrack),
+          bitrate: video.bitrate ?? undefined,
+          isPreferred: video.preferred,
+          playbackId,
+          quality: video.resolution ?? undefined,
+          source: { externalId: episodeUrl, sourceId },
+          subtitleTracks: video.subtitleTracks.map(mapTrack),
+          title: video.videoTitle,
+        };
+      }),
     });
   }
 
   async proxyStream(
-    sourceId: string,
-    episodeUrl: string,
-    streamIndex: number,
+    playbackId: string,
     range?: string,
   ): Promise<Response> {
-    const payload = await this.getVideos(sourceId, episodeUrl);
-    const video = payload.videos[streamIndex];
-    if (video === undefined)
-      throw new MiwayomiContentUnavailableError("The selected video was not found.");
+    const video = this.playbackSessions.get(playbackId);
+    if (video === undefined || Date.now() - video.lastUsedAt > playbackSessionIdleMs) {
+      this.playbackSessions.delete(playbackId);
+      throw new MiwayomiContentUnavailableError("The playback session has expired.");
+    }
+    video.lastUsedAt = Date.now();
 
     const headers = new Headers(video.headers);
     if (range !== undefined) headers.set("range", range);
     let response: Response;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      response = await this.fetcher(video.videoUrl, {
+      response = await this.fetcher(video.url, {
         headers,
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: controller.signal,
       });
     } catch {
       throw new MiwayomiPlaybackError("The video host could not be reached.");
+    } finally {
+      // The timeout applies to establishing the connection, not a long movie body.
+      clearTimeout(timer);
     }
     if (!response.ok && response.status !== 206)
       throw new MiwayomiPlaybackError(
         `The video host returned HTTP ${response.status}.`,
         response.status,
       );
+
+    // A full response to a nonzero Range would silently restart the browser player.
+    const requestedStart = range === undefined ? undefined : /^bytes=(\d+)-/.exec(range)?.[1];
+    if (requestedStart !== undefined && Number(requestedStart) > 0) {
+      const returnedStart = /^bytes (\d+)-\d+\/\d+$/.exec(
+        response.headers.get("content-range") ?? "",
+      )?.[1];
+      if (response.status !== 206 || returnedStart !== requestedStart) {
+        await response.body?.cancel();
+        throw new MiwayomiPlaybackError("The video host returned an incorrect byte range.");
+      }
+    }
 
     const outputHeaders = new Headers();
     for (const name of [
@@ -243,10 +281,19 @@ export class MiwayomiClient {
       const value = response.headers.get(name);
       if (value !== null) outputHeaders.set(name, value);
     }
+    outputHeaders.set("cache-control", "private, no-store");
     return new Response(response.body, {
       headers: outputHeaders,
       status: response.status,
     });
+  }
+
+  private prunePlaybackSessions() {
+    const now = Date.now();
+    for (const [id, session] of this.playbackSessions) {
+      if (now - session.lastUsedAt > playbackSessionIdleMs)
+        this.playbackSessions.delete(id);
+    }
   }
 
   private async getVideos(sourceId: string, episodeUrl: string) {

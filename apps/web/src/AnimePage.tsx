@@ -332,7 +332,7 @@ function AnimeDetailsPage({
                   className="mt-4 aspect-video w-full rounded-xl bg-black"
                   controls
                   preload="metadata"
-                  src={`/api/anime/streams/${encodeURIComponent(sourceId)}/${encodeURIComponent(selectedEpisode?.source.externalId ?? "")}/${streams.indexOf(selectedStream)}`}
+                  src={`/api/anime/streams/${selectedStream.playbackId}`}
                   onTimeUpdate={(event) => {
                     if (selectedEpisode === null || authenticatedHeaders() === undefined)
                       return;
@@ -375,13 +375,13 @@ function AnimeDetailsPage({
                       className="min-h-11 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3"
                       onChange={(event) =>
                         setSelectedStream(
-                          streams.find((stream) => stream.url === event.target.value) ?? null,
+                          streams.find((stream) => stream.playbackId === event.target.value) ?? null,
                         )
                       }
-                      value={selectedStream.url}
+                      value={selectedStream.playbackId}
                     >
                       {streams.map((stream) => (
-                        <option key={stream.url} value={stream.url}>
+                        <option key={stream.playbackId} value={stream.playbackId}>
                           {stream.title}{stream.quality ? ` · ${stream.quality}p` : ""}
                         </option>
                       ))}

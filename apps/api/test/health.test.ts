@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { SourceSummary } from "@taiju/contracts";
+import { MiwayomiClient } from "@taiju/providers";
 import {
   SuwayomiClientError,
   SuwayomiContentUnavailableError,
@@ -96,6 +97,8 @@ describe("GET /health", () => {
   });
 
   test("maps anime runtime operations through Taiju-owned endpoints", async () => {
+    const playbackId = "d2d1763e-a0c3-4dcb-a2c3-6f4ddca795bd";
+    const playbackRequests: Array<{ id: string; range?: string }> = [];
     const testApp = createApp({
       anime: {
         details: async (sourceId, animeId) => ({
@@ -119,6 +122,10 @@ describe("GET /health", () => {
         listSources: async () => [
           { id: "1", language: "en", name: "Anime runtime" },
         ],
+        proxyStream: async (id, range) => {
+          playbackRequests.push({ id, range });
+          return new Response("video", { status: 206 });
+        },
         search: async (sourceId, query) => ({
           hasNextPage: query.page < 2,
           items: [
@@ -134,10 +141,10 @@ describe("GET /health", () => {
             {
               audioTracks: [],
               isPreferred: true,
+              playbackId,
               source: { externalId: episodeId, sourceId },
               subtitleTracks: [],
               title: "720p",
-              url: "https://video.example/episode.m3u8",
             },
           ],
         }),
@@ -169,9 +176,72 @@ describe("GET /health", () => {
       "http://localhost/api/anime/episodes/1/%2Fepisode%2F1/streams",
     );
     expect(streams.status).toBe(200);
+    expect(streams.headers.get("cache-control")).toBe("private, no-store");
     expect(await streams.json()).toMatchObject({
-      items: [{ title: "720p" }],
+      items: [{ playbackId, title: "720p" }],
     });
+    const originalInfo = console.info;
+    let playbackLog = "";
+    console.info = (line) => { playbackLog += String(line); };
+    let playback: Response;
+    try {
+      playback = await testApp.request(
+        `http://localhost/api/anime/streams/${playbackId}`,
+        { headers: { Range: "bytes=100-" } },
+      );
+    } finally {
+      console.info = originalInfo;
+    }
+    expect(playback.status).toBe(206);
+    expect(playbackLog).toContain("/api/anime/streams/:playbackId");
+    expect(playbackLog).not.toContain(playbackId);
+    expect(playbackRequests).toEqual([{ id: playbackId, range: "bytes=100-" }]);
+  });
+
+  test("keeps two anime playback requests independent through the API", async () => {
+    let resolutions = 0;
+    const upstreamUrls: string[] = [];
+    const anime = new MiwayomiClient({
+      baseUrl: "http://miwayomi.test",
+      fetch: async (input) => {
+        const url = input.toString();
+        if (url.includes("/videos")) {
+          resolutions++;
+          return new Response(JSON.stringify({
+            videos: [{
+              videoTitle: "HD",
+              videoUrl: `https://video.example/viewer-${resolutions}.mp4`,
+            }],
+          }), { headers: { "content-type": "application/json" } });
+        }
+        upstreamUrls.push(url);
+        return new Response("video", {
+          headers: { "content-range": "bytes 100-104/1000" },
+          status: 206,
+        });
+      },
+    });
+    const testApp = createApp({ anime });
+    const listUrl = "http://localhost/api/anime/episodes/1/%2Fepisode%2F1/streams";
+    const first = await (await testApp.request(listUrl)).json();
+    const second = await (await testApp.request(listUrl)).json();
+    const firstId = first.items[0].playbackId as string;
+    const secondId = second.items[0].playbackId as string;
+    expect(firstId).not.toBe(secondId);
+    for (const id of [firstId, secondId, firstId]) {
+      const response = await testApp.request(
+        `http://localhost/api/anime/streams/${id}`,
+        { headers: { Range: "bytes=100-" } },
+      );
+      expect(response.status).toBe(206);
+      await response.body?.cancel();
+    }
+    expect(resolutions).toBe(2);
+    expect(upstreamUrls).toEqual([
+      "https://video.example/viewer-1.mp4",
+      "https://video.example/viewer-2.mp4",
+      "https://video.example/viewer-1.mp4",
+    ]);
   });
 
   test("exposes restricted sources only to configured authenticated accounts", async () => {

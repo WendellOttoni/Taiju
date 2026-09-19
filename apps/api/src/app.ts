@@ -47,6 +47,7 @@ import {
   validateReadingSource,
 } from "@taiju/sources";
 import { type Context, Hono } from "hono";
+import { z } from "zod";
 import {
   AuthenticationError,
   type AuthService,
@@ -99,7 +100,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
     console.info(
       JSON.stringify({
         method: context.req.method,
-        path: new URL(context.req.url).pathname,
+        path: loggedPath(context.req.url),
         status: context.res.status,
         durationMs: Math.round(performance.now() - startedAt),
       }),
@@ -137,6 +138,14 @@ export function createApp(dependencies: ApiDependencies = {}) {
     const query = parseAnimeSearchQuery(context);
     if (query instanceof Response) return query;
     return context.json(await anime.search(sourceId, query));
+  });
+  app.get("/api/anime/streams/:playbackId", async (context) => {
+    if (anime?.proxyStream === undefined)
+      return jsonError(context, 503, "source_runtime_unavailable", "The anime runtime is unavailable.");
+    const playbackId = context.req.param("playbackId");
+    if (!z.uuid().safeParse(playbackId).success)
+      return jsonError(context, 400, "validation_error", "Invalid anime stream reference.");
+    return anime.proxyStream(playbackId, context.req.header("Range"));
   });
   app.get("/api/anime/:sourceId/:animeId", async (context) => {
     if (anime === undefined)
@@ -193,17 +202,9 @@ export function createApp(dependencies: ApiDependencies = {}) {
         "validation_error",
         "Invalid anime episode reference.",
       );
-    return context.json(await anime.streams(sourceId, episodeId));
-  });
-  app.get("/api/anime/streams/:sourceId/:episodeId/:streamIndex", async (context) => {
-    if (anime?.proxyStream === undefined)
-      return jsonError(context, 503, "source_runtime_unavailable", "The anime runtime is unavailable.");
-    const sourceId = context.req.param("sourceId");
-    const episodeId = context.req.param("episodeId");
-    const streamIndex = Number(context.req.param("streamIndex"));
-    if (!validAnimeSourceId(sourceId) || !validAnimeExternalId(episodeId) || !Number.isInteger(streamIndex) || streamIndex < 0)
-      return jsonError(context, 400, "validation_error", "Invalid anime stream reference.");
-    return anime.proxyStream(sourceId, episodeId, streamIndex, context.req.header("Range"));
+    const response = await anime.streams(sourceId, episodeId);
+    context.header("Cache-Control", "private, no-store");
+    return context.json(response);
   });
   app.get("/api/anime/library", async (context) => {
     const user = await authenticatedUser(context, auth);
@@ -1351,7 +1352,7 @@ export function createApp(dependencies: ApiDependencies = {}) {
         event: "api_error",
         message: error instanceof Error ? error.message : "Unknown error",
         method: context.req.method,
-        path: new URL(context.req.url).pathname,
+        path: loggedPath(context.req.url),
       }),
     );
     if (error instanceof MangaDexContentUnavailableError)
@@ -1792,4 +1793,11 @@ function validAnimeExternalId(value: string | undefined): value is string {
     value.length <= 2_000 &&
     !value.includes("\u0000")
   );
+}
+
+function loggedPath(url: string) {
+  const pathname = new URL(url).pathname;
+  return /^\/api\/anime\/streams\/[^/]+$/.test(pathname)
+    ? "/api/anime/streams/:playbackId"
+    : pathname;
 }
