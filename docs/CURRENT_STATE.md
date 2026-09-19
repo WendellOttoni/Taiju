@@ -209,6 +209,8 @@ ocultado dos logs de requisições e erros da API.
 Durante a atualização separada do frontend e da API, a web aceita tanto o
 contrato antigo com URL quanto o novo com ID de playback. A proteção completa
 de sessões independentes passa a valer quando a API da VPS também é atualizada.
+O comando pendente para atualizar a VPS está em
+[PENDING_VPS_UPDATE.md](PENDING_VPS_UPDATE.md).
 Ainda falta verificar a reprodução simultânea com uma fonte e um host reais;
 um host que invalide a URL já entregue quando outra pessoa inicia uma sessão
 continua fora do controle do Taiju.
