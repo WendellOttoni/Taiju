@@ -132,7 +132,7 @@ Source-engine migration started; existing MangaDex flow remains the legacy adapt
 
 The web frontend is configured in the Vercel project `taiju` with `apps/web` as its root, Vite as the framework, and `bun run build` as the production build command. The first production deployment is live at `https://taiju-one.vercel.app`; API, PostgreSQL, and Suwayomi still require the Docker/VPS deployment described in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
-The Vercel production frontend now rewrites `/api/*` to the temporary HTTPS VPS endpoint `54-232-197-67.nip.io`; the rewrite is intended for testing until a permanent Taiju domain is registered.
+The Vercel production frontend now rewrites `/api/*` to the temporary HTTPS VPS endpoint `56-124-115-189.nip.io`; the rewrite is intended for testing until a permanent Taiju domain is registered.
 
 ## Next task
 
